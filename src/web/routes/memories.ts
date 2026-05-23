@@ -13,6 +13,23 @@ import type { RouteContext } from './types.js'
 // src/db.ts so the API rejects bad values before they even reach SQLite.
 const MEMORY_CATEGORIES = new Set(['hot', 'warm', 'cold', 'shared'])
 
+const SUSPICIOUS_PATTERNS = [
+  /\bcurl\s+(-[a-zA-Z]\s+)*https?:\/\//i,
+  /\bbash\s+-c\b/i,
+  /\beval\s*\(/i,
+  /\bexec\s*\(/i,
+  /\bimport\s+subprocess\b/i,
+  /ignore\s+(all\s+)?previous\s+instructions/i,
+  /override\s+your\s+(instructions|rules|safety|guidelines)/i,
+  /forget\s+your\s+(instructions|rules|safety|guidelines|training)/i,
+  /new\s+persona/i,
+  /\brm\s+-rf\b/i,
+]
+
+function containsSuspiciousContent(content: string): boolean {
+  return SUSPICIOUS_PATTERNS.some((pattern) => pattern.test(content))
+}
+
 export async function tryHandleMemories(ctx: RouteContext): Promise<boolean> {
   const { req, res, path, method, url } = ctx
 
@@ -20,6 +37,11 @@ export async function tryHandleMemories(ctx: RouteContext): Promise<boolean> {
     const body = await readBody(req)
     const data = JSON.parse(body.toString()) as { agent_id?: string; content: string; tier?: string; category?: string; keywords?: string }
     if (!data.content?.trim()) { json(res, { error: 'Content is required' }, 400); return true }
+    if (containsSuspiciousContent(data.content)) {
+      logger.warn({ agent: data.agent_id }, 'Memory content rejected: suspicious pattern')
+      json(res, { error: 'Content rejected by security filter' }, 400)
+      return true
+    }
     if (data.tier && !data.category) {
       logger.warn({ agent: data.agent_id }, '[DEPRECATED] /api/memories: use "category" instead of "tier"')
     }
