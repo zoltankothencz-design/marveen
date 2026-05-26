@@ -1549,25 +1549,124 @@ document.getElementById('saveProfileBtn').addEventListener('click', async () => 
 })
 
 // === Auth Mode ===
-function updateAuthModeUI(mode, hasApiKey) {
-  document.querySelectorAll('input[name="authMode"]').forEach(r => { r.checked = r.value === mode })
+function selectAuthModeCard(mode) {
+  document.querySelectorAll('.auth-mode-card').forEach(c => {
+    const isSelected = c.dataset.mode === mode
+    c.classList.toggle('selected', isSelected)
+    c.querySelector('input[type="radio"]').checked = isSelected
+  })
+  document.getElementById('authModeSharedSection').hidden = mode !== 'shared'
   document.getElementById('authModeApiKeySection').hidden = mode !== 'api'
-  document.getElementById('authModeOwnTeamHint').hidden = mode !== 'own_team'
-  const statusEl = document.getElementById('authModeApiKeyStatus')
+  document.getElementById('authModeOwnTeamSection').hidden = mode !== 'own_team'
+  document.getElementById('authFlowResult').hidden = true
+  document.getElementById('authFlowError').hidden = true
+  document.getElementById('authSharedError').hidden = true
+}
+
+function updateAuthModeUI(mode, hasApiKey) {
+  selectAuthModeCard(mode)
   const keyInput = document.getElementById('editAgentApiKey')
   keyInput.value = ''
   if (mode === 'api') {
+    const statusEl = document.getElementById('authModeApiKeyStatus')
     statusEl.textContent = hasApiKey ? 'API kulcs konfigurálva a vault-ban' : 'Nincs API kulcs beállítva'
     statusEl.style.color = hasApiKey ? 'var(--success)' : 'var(--warning)'
   }
 }
 
-document.querySelectorAll('input[name="authMode"]').forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    const mode = e.target.value
-    document.getElementById('authModeApiKeySection').hidden = mode !== 'api'
-    document.getElementById('authModeOwnTeamHint').hidden = mode !== 'own_team'
+document.querySelectorAll('.auth-mode-card').forEach(card => {
+  card.addEventListener('click', () => {
+    selectAuthModeCard(card.dataset.mode)
   })
+})
+
+document.getElementById('authSharedApplyBtn').addEventListener('click', async () => {
+  if (!currentAgent) return
+  const btn = document.getElementById('authSharedApplyBtn')
+  const btnText = btn.querySelector('.btn-text')
+  const btnLoading = btn.querySelector('.btn-loading')
+  const errorDiv = document.getElementById('authSharedError')
+  errorDiv.hidden = true
+  btnText.hidden = true
+  btnLoading.hidden = false
+  btn.disabled = true
+  try {
+    const base = `/api/agents/${encodeURIComponent(currentAgent.name)}`
+    const saveRes = await fetch(base, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authMode: 'shared' }),
+    })
+    if (!saveRes.ok) throw new Error('Save failed')
+    if (currentAgent.running) {
+      await fetch(`${base}/stop`, { method: 'POST' })
+      await new Promise(r => setTimeout(r, 2000))
+      const startRes = await fetch(`${base}/start`, { method: 'POST' })
+      const startData = await startRes.json()
+      if (!startRes.ok) {
+        errorDiv.textContent = startData.error || 'Agent újraindítása sikertelen'
+        errorDiv.hidden = false
+        return
+      }
+    }
+    showToast('Agent újraindítva host OAuth-tal')
+    loadAgents()
+    const detailRes = await fetch(base)
+    if (detailRes.ok) {
+      currentAgent = await detailRes.json()
+      updateAuthModeUI(currentAgent.authMode || 'shared', currentAgent.hasApiKey || false)
+      updateProcessControl(currentAgent)
+    }
+  } catch {
+    errorDiv.textContent = 'Hiba az alkalmazás során'
+    errorDiv.hidden = false
+  } finally {
+    btnText.hidden = false
+    btnLoading.hidden = true
+    btn.disabled = false
+  }
+})
+
+document.getElementById('authFlowInitBtn').addEventListener('click', async () => {
+  if (!currentAgent) return
+  const btn = document.getElementById('authFlowInitBtn')
+  const btnText = btn.querySelector('.btn-text')
+  const btnLoading = btn.querySelector('.btn-loading')
+  const resultDiv = document.getElementById('authFlowResult')
+  const errorDiv = document.getElementById('authFlowError')
+  resultDiv.hidden = true
+  errorDiv.hidden = true
+  btnText.hidden = true
+  btnLoading.hidden = false
+  btn.disabled = true
+  try {
+    const res = await fetch(`/api/agents/${encodeURIComponent(currentAgent.name)}/auth/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = await res.json()
+    if (data.ok && data.authUrl) {
+      const urlEl = document.getElementById('authFlowUrl')
+      urlEl.href = data.authUrl
+      urlEl.textContent = data.authUrl
+      resultDiv.hidden = false
+    } else {
+      errorDiv.textContent = data.error || 'Auth URL nem talalhato'
+      errorDiv.hidden = false
+    }
+  } catch {
+    errorDiv.textContent = 'Hálózati hiba az auth-flow indításakor'
+    errorDiv.hidden = false
+  } finally {
+    btnText.hidden = false
+    btnLoading.hidden = true
+    btn.disabled = false
+  }
+})
+
+document.getElementById('authFlowCopyBtn').addEventListener('click', () => {
+  const url = document.getElementById('authFlowUrl').textContent
+  navigator.clipboard.writeText(url).then(() => showToast('URL masolva'))
 })
 
 document.getElementById('saveAuthModeBtn').addEventListener('click', async () => {
@@ -1585,16 +1684,15 @@ document.getElementById('saveAuthModeBtn').addEventListener('click', async () =>
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error()
-    showToast('Hitelesítési mód mentve (újraindítás szükséges)')
+    showToast('Hitelesítési mód mentve (ujrainditás szukseges)')
     loadAgents()
-    // Refresh detail to update hasApiKey status
     const detailRes = await fetch(`/api/agents/${encodeURIComponent(currentAgent.name)}`)
     if (detailRes.ok) {
       const updated = await detailRes.json()
       currentAgent = updated
       updateAuthModeUI(updated.authMode || 'shared', updated.hasApiKey || false)
     }
-  } catch { showToast('Hiba a mentés során') }
+  } catch { showToast('Hiba a mentes soran') }
 })
 
 document.getElementById('saveClaudeMdBtn').addEventListener('click', async () => {
