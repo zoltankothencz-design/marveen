@@ -526,8 +526,8 @@ export async function tryHandleAgents(ctx: RouteContext, webDir: string): Promis
   const testMatch = matchChannelRoute(path, '/test')
   if (testMatch && method === 'POST') {
     const [name, provider] = testMatch
-    if (!existsSync(agentDir(name))) { json(res, { error: 'Agent not found' }, 404); return true }
-    const stateDir = channelStateDir(provider, agentDir(name))
+    if (name !== MAIN_AGENT_ID && !existsSync(agentDir(name))) { json(res, { error: 'Agent not found' }, 404); return true }
+    const stateDir = name === MAIN_AGENT_ID ? channelStateDir(provider) : channelStateDir(provider, agentDir(name))
     const envPath = join(stateDir, '.env')
     const token = readChannelToken(provider, envPath) || (provider === 'telegram' ? parseTelegramToken(name) : null)
     if (!token) { json(res, { error: `${provider} not configured for this agent` }, 404); return true }
@@ -671,6 +671,7 @@ export async function tryHandleAgents(ctx: RouteContext, webDir: string): Promis
       running: true,
     })
     for (const agentName of listAgentNames()) {
+      if (agentName === MAIN_AGENT_ID) continue // skip: already added as main
       const team = readAgentTeam(agentName)
       nodes.push({
         id: agentName,

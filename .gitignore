@@ -34,6 +34,9 @@ CLAUDE.md
 mcp-servers/
 .mcp.json
 
+# Personal memory files (may contain sensitive data)
+memory/
+
 # Personal/project-specific docs (not part of the product)
 # Old rebuild prompts (keep V3 which is the current one)
 REBUILD_PROMPT.md

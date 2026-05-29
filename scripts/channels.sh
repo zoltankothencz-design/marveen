@@ -78,12 +78,17 @@ unset TMUX
 export PATH="/opt/homebrew/bin:$HOME/.bun/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 CLAUDE="$(command -v claude)"
-TMUX="$(command -v tmux)"
+TMUX_BIN="$(command -v tmux)"
 [ -z "$CLAUDE" ] && echo "ERROR: claude not found on PATH" >&2 && exit 1
-[ -z "$TMUX" ]   && echo "ERROR: tmux not found on PATH" >&2 && exit 1
+[ -z "$TMUX_BIN" ]   && echo "ERROR: tmux not found on PATH" >&2 && exit 1
 
 # Régi session takarítás
-$TMUX kill-session -t "$SESSION" 2>/dev/null
+$TMUX_BIN kill-session -t "$SESSION" 2>/dev/null
+
+# Bun zombie cleanup: kill leftover bun server processes that hold the Telegram
+# getUpdates slot so the new claude instance can connect without 409 Conflict.
+pkill -f 'bun server.ts' 2>/dev/null; pkill -f 'bun run.*telegram' 2>/dev/null; pkill -f 'bun.*server' 2>/dev/null
+sleep 2
 
 # Tmux session indítás
 #
@@ -91,7 +96,7 @@ $TMUX kill-session -t "$SESSION" 2>/dev/null
 # the cwd-based project dir may contain the user's own CLI sessions, and
 # resuming one of those loses the --channels activation state, causing
 # "Channel notifications skipped: server not in --channels list" errors.
-$TMUX new-session -d -s "$SESSION" -c "$INSTALL_DIR" \
+$TMUX_BIN new-session -d -s "$SESSION" -c "$INSTALL_DIR" \
   "$CLAUDE --dangerously-skip-permissions --channels plugin:${PLUGIN_ID}"
 
 # Session startup guard: a Claude Code first-run dialogusait auto-accept-eljuk
@@ -104,20 +109,20 @@ $TMUX new-session -d -s "$SESSION" -c "$INSTALL_DIR" \
 # 12 sec timeout ket retry-jal, mert WSL/tmux paint slow lehet first-run-on.
 for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
   sleep 1
-  pane=$($TMUX capture-pane -t "$SESSION" -p 2>/dev/null || true)
+  pane=$($TMUX_BIN capture-pane -t "$SESSION" -p 2>/dev/null || true)
   case "$pane" in
     *"Bypass Permissions mode"*"Yes, I accept"*)
-      $TMUX send-keys -t "$SESSION" "2" Enter
+      $TMUX_BIN send-keys -t "$SESSION" "2" Enter
       sleep 1
       continue
       ;;
     *"Do you trust the files in this folder?"*)
-      $TMUX send-keys -t "$SESSION" "1" Enter
+      $TMUX_BIN send-keys -t "$SESSION" "1" Enter
       sleep 1
       continue
       ;;
     *"Welcome to Claude Code"*)
-      $TMUX send-keys -t "$SESSION" Enter
+      $TMUX_BIN send-keys -t "$SESSION" Enter
       sleep 1
       continue
       ;;
@@ -147,7 +152,7 @@ fi
 START_TS=$(date +%s)
 
 # Várakozás amíg a session él
-while $TMUX has-session -t "$SESSION" 2>/dev/null; do
+while $TMUX_BIN has-session -t "$SESSION" 2>/dev/null; do
   sleep 5
 done
 

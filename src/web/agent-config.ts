@@ -243,6 +243,7 @@ export function writeAgentSecurityProfile(name: string, profileId: string): void
 export function listAgentNames(): string[] {
   if (!existsSync(AGENTS_BASE_DIR)) return []
   return readdirSync(AGENTS_BASE_DIR).filter((f) => {
+    if (f === MAIN_AGENT_ID) return false // main agent is not a sub-agent
     try { return statSync(join(AGENTS_BASE_DIR, f)).isDirectory() } catch { return false }
   })
 }

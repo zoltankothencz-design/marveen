@@ -1065,6 +1065,7 @@ async function openMarveenDetail() {
   document.getElementById('deleteAgentBtn').style.display = 'none'
 
   document.getElementById('detailAvatarGallery').hidden = true
+  loadSkills('marveen')
   switchAgentTab('overview')
   openModal(agentDetailOverlay)
 }
