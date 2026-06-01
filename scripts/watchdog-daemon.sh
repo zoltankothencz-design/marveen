@@ -6,8 +6,8 @@
 
 INSTALL_DIR="/home/userzoltan/marveen"
 SESSION="marveen-channels"
-STUCK_TIMEOUT=60      # masodperc elott stuck -> Ctrl-C
-RESTART_TIMEOUT=90    # masodperc elott stuck -> RESTART (Ctrl-C utan)
+STUCK_TIMEOUT=120     # masodperc elott stuck -> Ctrl-C
+RESTART_TIMEOUT=180   # masodperc elott stuck -> RESTART (Ctrl-C utan)
 COOLDOWN=90           # minimum ido ket ujrainditas kozott
 CHECK_INTERVAL=15     # ellenorzesi intervallum masodpercben
 LOG="/tmp/marveen-watchdog-daemon.log"
@@ -70,6 +70,8 @@ while true; do
   fi
 
   PANE=$(tmux capture-pane -t "$SESSION" -p 2>/dev/null)
+  # Csak az utolso 8 sor a prompt detektáláshoz (ne vegye a scrollback-et)
+  PANE_TAIL=$(echo "$PANE" | tail -8)
 
   # 2. Stuck allapot: mintazat "[SzO]ing... (Xs)" vagy "[Szo]ed for Xs"
   #    Ez megfog MINDEN gondolkodo szot (Calculating, Flummoxing, Contemplating, stb.)
@@ -119,6 +121,44 @@ while true; do
   elif echo "$PANE" | grep -q "issue with the selected model"; then
     log "DAEMON: model hiba -- RESTART"
     restart_channels
+
+  # 4b. Remote-control elveszett (auto-update utan) - reaktivacias
+  if echo "$PANE" | grep -q "Listening for channel messages" && \
+     ! echo "$PANE" | grep -q "Remote Control active"; then
+    RC_FILE="/tmp/mcd-rc-reactivate"
+    NOW=$(date +%s)
+    if [ ! -f "$RC_FILE" ] || [ $(( NOW - $(cat "$RC_FILE") )) -ge 30 ]; then
+      echo "$NOW" > "$RC_FILE"
+      log "DAEMON: remote-control nem aktiv -- reaktivalas"
+      tmux send-keys -t "$SESSION" C-c
+      sleep 2
+      tmux send-keys -t "$SESSION" '/remote-control marveen' Enter
+    fi
+  fi
+
+  # 4c. Pending Telegram uzenet az input bufferben (plugin inject de nem submitalt)
+  # Ha a prompt sorban szoveg van es az agent nem dolgozik -> Enter kuldese
+  elif echo "$PANE_TAIL" | grep -q $'^\xe2\x9d\xaf\xc2\xa0.\{3,\}'; then
+    PENDING=$(echo "$PANE_TAIL" | grep $'^\xe2\x9d\xaf' | head -1)
+    PENDING_FILE="/tmp/mcd-pending-msg"
+    NOW=$(date +%s)
+    if [ ! -f "$PENDING_FILE" ]; then
+      echo "$NOW:$PENDING" > "$PENDING_FILE"
+      log "DAEMON: pending input eszlelve: '$PENDING'"
+    else
+      STORED=$(cat "$PENDING_FILE")
+      START=$(echo "$STORED" | cut -d: -f1)
+      ELAPSED=$(( NOW - START ))
+      if [ "$ELAPSED" -ge 10 ]; then
+        # Szöveg kinyerése, C-c + újra-injektálás + Enter
+        MSG_TEXT=$(echo "$STORED" | cut -d: -f2- | sed $'s/^\xe2\x9d\xaf\xc2\xa0//')
+        log "DAEMON: pending input ${ELAPSED}s -- inject: '$MSG_TEXT'"
+        tmux send-keys -t "$SESSION" C-c
+        sleep 0.5
+        tmux send-keys -t "$SESSION" "$MSG_TEXT" Enter
+        rm -f "$PENDING_FILE"
+      fi
+    fi
 
   # 5. Ures pane
   elif [ -z "$(echo "$PANE" | tr -d '[:space:]')" ]; then
