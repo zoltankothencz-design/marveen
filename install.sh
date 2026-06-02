@@ -7,7 +7,11 @@ case "$(uname -s)" in
     exec "$(dirname "$0")/install-macos.sh" "$@"
     ;;
   Linux)
-    exec "$(dirname "$0")/install-linux.sh" "$@"
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+      exec "$(dirname "$0")/install-wsl.sh" "$@"
+    else
+      exec "$(dirname "$0")/install-linux.sh" "$@"
+    fi
     ;;
   *)
     echo "Nem tamogatott operacios rendszer: $(uname -s)"

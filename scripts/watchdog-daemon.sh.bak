@@ -1,12 +1,11 @@
 #!/bin/bash
-# marveen-watchdog-daemon.sh
+# marveen-watchdog-daemon.sh -- egyszerűsített verzió
 INSTALL_DIR="/home/userzoltan/marveen"
 SESSION="marveen-channels"
 CHECK_INTERVAL=15
-STUCK_TIMEOUT=300
+STUCK_TIMEOUT=90
 LOG="/home/userzoltan/marveen/store/watchdog.log"
 STUCK_SINCE_FILE="/home/userzoltan/marveen/store/mcd-stuck-since"
-INTERRUPTED_COOLDOWN_FILE="/home/userzoltan/marveen/store/mcd-interrupted-cd"
 
 log() { echo "$(date -Iseconds) $*" | tee -a "$LOG"; }
 
@@ -18,7 +17,6 @@ restart_channels() {
     sleep 2
     cd "$INSTALL_DIR" && nohup bash scripts/channels.sh >> "$LOG" 2>&1 &
     rm -f "$STUCK_SINCE_FILE"
-    rm -f "$INTERRUPTED_COOLDOWN_FILE"
     log "RESTART: channels.sh elindult"
 }
 
@@ -31,7 +29,7 @@ while true; do
     if ! tmux has-session -t "$SESSION" 2>/dev/null; then
         log "SESSION HIANYZIK -- restart"
         restart_channels
-        sleep 30
+        sleep 20
         continue
     fi
 
@@ -49,8 +47,7 @@ while true; do
             if [ "$ELAPSED" -ge "$STUCK_TIMEOUT" ]; then
                 log "STUCK ${ELAPSED}s -- Ctrl-C"
                 tmux send-keys -t "$SESSION" C-c
-                sleep 20
-                rm -f "$INTERRUPTED_COOLDOWN_FILE"
+                sleep 15
                 PANE2=$(tmux capture-pane -t "$SESSION" -p 2>/dev/null)
                 if echo "$PANE2" | grep -qP '\(\d+m \d+s|\(\d+s ·'; then
                     log "MEG STUCK Ctrl-C utan -- restart"
@@ -65,15 +62,9 @@ while true; do
         rm -f "$STUCK_SINCE_FILE"
     fi
 
-    # 3. Interrupted -- 120s cooldown, hogy ne kaszkadozzon
+    # 3. Interrupted
     if echo "$PANE" | tail -15 | grep -q "Interrupted"; then
-        NOW=$(date +%s)
-        LAST_INT=0
-        [ -f "$INTERRUPTED_COOLDOWN_FILE" ] && LAST_INT=$(cat "$INTERRUPTED_COOLDOWN_FILE")
-        if [ $((NOW - LAST_INT)) -ge 120 ]; then
-            log "INTERRUPTED -- Enter kuldese"
-            tmux send-keys -t "$SESSION" "" Enter
-            echo "$NOW" > "$INTERRUPTED_COOLDOWN_FILE"
-        fi
+        log "INTERRUPTED -- Enter kuldese"
+        tmux send-keys -t "$SESSION" "" Enter
     fi
 done

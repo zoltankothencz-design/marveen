@@ -93,29 +93,29 @@ else
       rm -f /tmp/marveen-watchdog-interrupted-last
     fi
 
-  # 4. "Calculating" stuck elerzes
-  elif echo "$PANE" | grep -qE '(Calculating|Flummoxing|Churning|Wandering|Pondering|Thinking|Cogitating|Mulling|Churned)'; then
+  # 4. "Calculating/Slithering/..." stuck elerzes
+  elif echo "$PANE" | grep -qE '(Calculating|Flummoxing|Churning|Wandering|Pondering|Thinking|Cogitating|Mulling|Churned|Slithering|Ruminating|Musing|Deliberating|Reflecting|Contemplating|Simmering|Percolating|Noodling|Meandering|Untangling|Unraveling)'; then
     CALC_FILE="/tmp/marveen-channels-calc-start"
     NOW=$(date +%s)
     if [ ! -f "$CALC_FILE" ]; then
       echo "$NOW" > "$CALC_FILE"
-      log "WATCHDOG: $SESSION Calculating allapot kezdete rogzitve"
+      log "WATCHDOG: $SESSION thinking allapot kezdete rogzitve"
     else
       CALC_START=$(cat "$CALC_FILE")
       CALC_ELAPSED=$(( NOW - CALC_START ))
       if [ "$CALC_ELAPSED" -gt 180 ]; then
-        log "WATCHDOG: $SESSION Calculating ${CALC_ELAPSED}s -- Ctrl-C kuldese"
+        log "WATCHDOG: $SESSION thinking ${CALC_ELAPSED}s -- Ctrl-C kuldese"
         tmux send-keys -t "$SESSION" C-c
         sleep 3
         rm -f "$CALC_FILE"
         PANE3=$(tmux capture-pane -t "$SESSION" -p 2>/dev/null)
-        if echo "$PANE3" | grep -qE '(Calculating|Flummoxing|Churning|Wandering|Pondering|Thinking|Cogitating|Mulling|Churned)'; then
+        if echo "$PANE3" | grep -qE '(Calculating|Flummoxing|Churning|Wandering|Pondering|Thinking|Cogitating|Mulling|Churned|Slithering|Ruminating|Musing|Deliberating|Reflecting|Contemplating|Simmering|Percolating|Noodling|Meandering|Untangling|Unraveling)'; then
           if needs_restart "calc-stuck"; then
-            log "WATCHDOG: $SESSION meg mindig Calculating Ctrl-C utan -- ujrainditas"
+            log "WATCHDOG: $SESSION meg mindig thinking Ctrl-C utan -- ujrainditas"
             restart_channels
           fi
         else
-          log "WATCHDOG: $SESSION Calculating feloldva Ctrl-C utan"
+          log "WATCHDOG: $SESSION thinking feloldva Ctrl-C utan"
         fi
       fi
     fi

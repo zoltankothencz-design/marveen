@@ -75,7 +75,7 @@ unset TELEGRAM_BOT_TOKEN SLACK_BOT_TOKEN SLACK_APP_TOKEN DISCORD_BOT_TOKEN
 # scrub the env var before any tmux command runs.
 unset TMUX
 
-export PATH="/opt/homebrew/bin:$HOME/.bun/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="/opt/homebrew/bin:$HOME/.npm-global/bin:$HOME/.bun/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 CLAUDE="$(command -v claude)"
 TMUX_BIN="$(command -v tmux)"
@@ -92,12 +92,11 @@ sleep 2
 
 # Tmux session indítás
 #
-# Always start a fresh conversation. --continue is intentionally omitted:
-# the cwd-based project dir may contain the user's own CLI sessions, and
-# resuming one of those loses the --channels activation state, causing
-# "Channel notifications skipped: server not in --channels list" errors.
+# --channels plugin eltavolitva: a tg-bridge.py az egyetlen Telegram poller.
+# Ha mindketto polloz, 409 Conflict jon es a hanguzeneteket a plugin elkapja,
+# a tg-bridge nem latja. tg-bridge kezeli a text+hang I/O-t, Marveen notify.sh-val valaszol.
 $TMUX_BIN new-session -d -s "$SESSION" -c "$INSTALL_DIR" \
-  "$CLAUDE --dangerously-skip-permissions --channels plugin:${PLUGIN_ID}"
+  "$CLAUDE --dangerously-skip-permissions"
 
 # Session startup guard: a Claude Code first-run dialogusait auto-accept-eljuk
 # kulonben a headless session orokre parkolna a prompton es a Telegram plugin
@@ -135,9 +134,9 @@ done
 # Set agent name and remote-control identifier once the session is ready.
 _bot_name="${BOT_NAME:-${MAIN_AGENT_ID:-marveen}}"
 sleep 1
-$TMUX send-keys -t "$SESSION" "/name ${_bot_name}" Enter
+$TMUX_BIN send-keys -t "$SESSION" "/name ${_bot_name}" Enter
 sleep 1
-$TMUX send-keys -t "$SESSION" "/remote-control ${_bot_name}" Enter
+$TMUX_BIN send-keys -t "$SESSION" "/remote-control ${_bot_name}" Enter
 unset _bot_name
 
 # Bot menu setup (Telegram only; Slack uses App Manifest)

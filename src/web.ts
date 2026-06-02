@@ -89,10 +89,14 @@ export function startWebServer(port = 3420): http.Server {
     // via <img src> which can't carry headers -- these are non-sensitive assets).
     const isPublicApi =
       (path === '/api/auth/status' && method === 'GET') ||
+      (path === '/api/health' && method === 'GET') ||
       (method === 'GET' && (
         path === '/api/marveen/avatar' ||
         /^\/api\/agents\/[^/]+\/avatar$/.test(path)
       ))
+    if (path === '/api/health' && method === 'GET') {
+      return json(res, { ok: true, uptime: Math.floor(process.uptime()), ts: Date.now() })
+    }
     if (path === '/api/auth/status' && method === 'GET') {
       const ok = checkBearerToken(req.headers.authorization, DASHBOARD_TOKEN)
       return json(res, { authenticated: ok })

@@ -40,6 +40,9 @@ export interface ScheduledTask {
   // `agent-<name>` or MAIN_CHANNELS_SESSION. Enables dedicated
   // scheduler-only sessions in the future.
   targetSession?: string
+  // When set, the scheduler injects a /goal command before the prompt so
+  // the agent keeps working until the specified condition is met.
+  goal?: string
 }
 
 function readFileOr(path: string, fallback: string): string {
@@ -69,7 +72,7 @@ export function readScheduledTask(taskName: string): ScheduledTask | null {
   const skillContent = readFileOr(skillPath, '')
   const { name, description, body } = parseSkillMdFrontmatter(skillContent)
 
-  let config: { schedule?: string; agent?: string; enabled?: boolean; createdAt?: number; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string } = {}
+  let config: { schedule?: string; agent?: string; enabled?: boolean; createdAt?: number; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string; goal?: string } = {}
   try {
     config = JSON.parse(readFileOr(configPath, '{}'))
   } catch { /* use defaults */ }
@@ -86,6 +89,7 @@ export function readScheduledTask(taskName: string): ScheduledTask | null {
     skipIfBusy: config.skipIfBusy === true,
     forceSend: config.forceSend === true,
     targetSession: config.targetSession || undefined,
+    goal: config.goal || undefined,
   }
 }
 
@@ -104,7 +108,7 @@ export function listScheduledTasks(): ScheduledTask[] {
 
 export function writeScheduledTask(
   taskName: string,
-  data: { description?: string; prompt?: string; schedule?: string; agent?: string; enabled?: boolean; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string },
+  data: { description?: string; prompt?: string; schedule?: string; agent?: string; enabled?: boolean; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string; goal?: string },
 ): void {
   const dir = join(SCHEDULED_TASKS_DIR, taskName)
   mkdirSync(dir, { recursive: true })
@@ -131,6 +135,7 @@ export function writeScheduledTask(
   if (data.skipIfBusy !== undefined) config.skipIfBusy = data.skipIfBusy
   if (data.forceSend !== undefined) config.forceSend = data.forceSend
   if (data.targetSession !== undefined) config.targetSession = data.targetSession
+  if (data.goal !== undefined) config.goal = data.goal
   if (!config.createdAt) config.createdAt = Math.floor(Date.now() / 1000)
   atomicWriteFileSync(configPath, JSON.stringify(config, null, 2))
 }

@@ -7,7 +7,10 @@
     "category": "productivity",
     "icon": "📁",
     "command": "npx",
-    "args": ["-y", "@piotr-agier/google-drive-mcp"],
+    "args": [
+      "-y",
+      "@piotr-agier/google-drive-mcp"
+    ],
     "env": {},
     "authType": "oauth",
     "authNote": "Első használatkor a böngészőben kell bejelentkezni a Google fiókba",
@@ -21,7 +24,10 @@
     "category": "productivity",
     "icon": "📧",
     "command": "npx",
-    "args": ["-y", "gmail-mcp-server"],
+    "args": [
+      "-y",
+      "gmail-mcp-server"
+    ],
     "env": {},
     "authType": "oauth",
     "authNote": "Első használatkor OAuth bejelentkezés szükséges a böngészőben",
@@ -74,8 +80,13 @@
     "category": "search",
     "icon": "🔍",
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-    "env": {"BRAVE_API_KEY": ""},
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-brave-search"
+    ],
+    "env": {
+      "BRAVE_API_KEY": ""
+    },
     "authType": "apikey",
     "authNote": "API kulcs: https://brave.com/search/api/",
     "infoUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search"
@@ -88,7 +99,11 @@
     "category": "system",
     "icon": "💾",
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem",
+      "/"
+    ],
     "env": {},
     "authType": "none",
     "infoUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem"
@@ -101,8 +116,13 @@
     "category": "development",
     "icon": "🐙",
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {"GITHUB_TOKEN": ""},
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-github"
+    ],
+    "env": {
+      "GITHUB_TOKEN": ""
+    },
     "authType": "apikey",
     "authNote": "Personal Access Token: GitHub Settings -> Developer Settings -> Personal Access Tokens",
     "infoUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/github"
@@ -154,8 +174,13 @@
     "category": "ai",
     "icon": "🔊",
     "command": "npx",
-    "args": ["-y", "elevenlabs-mcp"],
-    "env": {"ELEVENLABS_API_KEY": ""},
+    "args": [
+      "-y",
+      "@angelogiacco/elevenlabs-mcp-server"
+    ],
+    "env": {
+      "ELEVENLABS_API_KEY": ""
+    },
     "authType": "apikey",
     "authNote": "API kulcs: https://elevenlabs.io - Settings -> API Keys",
     "infoUrl": "https://github.com/elevenlabs/elevenlabs-mcp"
@@ -168,7 +193,11 @@
     "category": "productivity",
     "icon": "🎙️",
     "command": "npx",
-    "args": ["-y", "mcp-remote", "https://api.fireflies.ai/mcp"],
+    "args": [
+      "-y",
+      "mcp-remote",
+      "https://api.fireflies.ai/mcp"
+    ],
     "env": {},
     "authType": "oauth",
     "authNote": "Első használatkor OAuth bejelentkezés (Google/Microsoft fiók) a böngészőben",

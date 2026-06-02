@@ -5,7 +5,7 @@
 # Ez a script csak a tmux sessionoket inditja.
 
 INSTALL_DIR="/home/userzoltan/marveen"
-LOG="/home/userzoltan/marveen/store/boot.log"
+LOG="/tmp/marveen-boot.log"
 
 echo "$(date -Iseconds) [user] boot-as-user start" >> "$LOG"
 

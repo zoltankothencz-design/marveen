@@ -8168,3 +8168,68 @@ window.addEventListener('resize', () => {
   const p = new URLSearchParams(window.location.search).get('page')
   if (p) switchPage(p)
 })()
+
+// === Beágyazott Marveen Chat ===
+function appendChatMessage(text, who) {
+  const box = document.getElementById('chatMessages')
+  if (!box) return
+  const wrap = document.createElement('div')
+  const isUser = who === 'user'
+  wrap.style.cssText = 'display:flex;' + (isUser ? 'justify-content:flex-end' : 'justify-content:flex-start') + ';'
+  const bubble = document.createElement('div')
+  const bg = isUser ? 'var(--accent,#e85d4a)' : 'var(--bg-subtle,#f3f4f6)'
+  const fg = isUser ? '#fff' : 'var(--fg,#111)'
+  bubble.style.cssText = 'max-width:80%;padding:8px 12px;border-radius:12px;background:' + bg + ';color:' + fg + ';white-space:pre-wrap;word-break:break-word;line-height:1.4;'
+  bubble.textContent = text
+  wrap.appendChild(bubble)
+  box.appendChild(wrap)
+  box.scrollTop = box.scrollHeight
+  return wrap
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput')
+  const btn = document.getElementById('chatSendBtn')
+  if (!input) return
+  const msg = input.value.trim()
+  if (!msg) return
+  input.value = ''
+  input.disabled = true
+  if (btn) { btn.disabled = true; btn.textContent = 'Vár...' }
+  appendChatMessage(msg, 'user')
+  const pending = appendChatMessage('Marveen gondolkodik (0s)...', 'bot')
+  const startTs = Date.now()
+  const timer = setInterval(() => {
+    if (pending && pending.querySelector('div')) {
+      const elapsed = Math.floor((Date.now() - startTs) / 1000)
+      pending.querySelector('div').textContent = 'Marveen gondolkodik (' + elapsed + 's)...'
+    }
+  }, 1000)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 320000)
+  try {
+    const res = await fetch('/api/marveen/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+    const d = await res.json()
+    clearInterval(timer)
+    if (pending) pending.remove()
+    if (d.reply) {
+      appendChatMessage(d.reply, 'bot')
+    } else {
+      appendChatMessage('Hiba: ' + (d.error || 'nincs válasz'), 'bot')
+    }
+  } catch (err) {
+    clearInterval(timer)
+    if (pending) pending.remove()
+    appendChatMessage('Hiba: ' + (err.message || err), 'bot')
+  } finally {
+    input.disabled = false
+    if (btn) { btn.disabled = false; btn.textContent = 'Küld' }
+    input.focus()
+  }
+}

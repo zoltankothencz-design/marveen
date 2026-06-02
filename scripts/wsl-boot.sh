@@ -5,7 +5,7 @@
 
 USER="userzoltan"
 INSTALL_DIR="/home/userzoltan/marveen"
-LOG="/tmp/marveen-boot.log"
+LOG="/home/userzoltan/marveen/store/boot.log"
 
 echo "$(date -Iseconds) WSL boot: Marveen autostart..." >> "$LOG"
 

@@ -106,6 +106,13 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number): '
       UNTRUSTED_PREAMBLE + '\n' +
       prefix.trimEnd() + '\n\n' +
       wrapUntrusted(`scheduled-task:${task.name}`, task.prompt)
+    // Ha a task-nak van goal mezo, injektaljuk /goal parancsként a prompt elott
+    if (task.goal) {
+      const goalCmd = `/goal ${task.goal}`
+      execFileSync(TMUX, ['send-keys', '-t', session, goalCmd, 'Enter'], { timeout: 5000 })
+      // Varunk egy pillanatot hogy a /goal feldolgozodjon mielott a prompt erkezik
+      execSync('sleep 1', { timeout: 3000 })
+    }
     sendPromptToSession(session, fullPrompt)
     scheduleLastRun.set(task.name, now)
     appendTaskRun(task.name, agentName)
