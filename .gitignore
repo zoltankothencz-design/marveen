@@ -49,3 +49,14 @@ claudeclaw.log
 
 # Local backup archives from scripts/backup.sh
 backups/
+
+# Security: secrets and credentials
+.env
+.env.local
+.env.*.local
+credentials.md
+*.token
+*.key
+*.pem
+*.pfx
+.ssh/

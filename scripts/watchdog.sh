@@ -158,6 +158,9 @@ if tmux has-session -t "$JH_SESSION" 2>/dev/null; then
     tmux kill-session -t "$JH_SESSION" 2>/dev/null
     sleep 2
     cd "$INSTALL_DIR" && bash scripts/start-job-hunter.sh >> "$LOG" 2>&1 &
+  elif echo "$JH_PANE" | grep -q "Resume from summary\|Enter to confirm · Esc to cancel"; then
+    log "WATCHDOG: $JH_SESSION resume-prompt -- '1' kuldese (summary)"
+    tmux send-keys -t "$JH_SESSION" "1" Enter
   fi
 fi
 
