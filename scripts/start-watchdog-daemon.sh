@@ -11,7 +11,10 @@ if tmux has-session -t "$DAEMON_SESSION" 2>/dev/null; then
   exit 0
 fi
 
+# Onujraindito wrapper: ha a watchdog-daemon.sh barmiert kilep,
+# 10 masodpercen belul ujraindul -- garantalja hogy a watchdog
+# soha nem marad tartosan leallva.
 tmux new-session -d -s "$DAEMON_SESSION" \
-  "bash $INSTALL_DIR/scripts/watchdog-daemon.sh"
+  "while true; do bash $INSTALL_DIR/scripts/watchdog-daemon.sh; sleep 10; done"
 
 echo "Watchdog daemon elindult: $DAEMON_SESSION"

@@ -73,8 +73,8 @@ const IDLE_FOOTER_RX = /bypass permissions on(?: \(shift\+tab to cycle\)| · \d+
 // label. `esc to interrupt` is the footer-scoped fallback. A future
 // Claude Code release that renames the spinner labels will miss the
 // label regex but still be caught by the tokens pattern.
-const BUSY_INDICATORS: RegExp[] = [
-  /\besc to interrupt\b/,
+// Busy indicators checked against the full pane content.
+const BUSY_INDICATORS_GLOBAL: RegExp[] = [
   // Tokens-down-arrow counter: "(52s · ↓ 2.6k tokens ..." Turn-scoped,
   // overwritten with whitespace the moment the turn completes.
   /\(\s*\d+s\s*·\s*↓\s*\d/,
@@ -82,9 +82,21 @@ const BUSY_INDICATORS: RegExp[] = [
   // the same line. The tail requirement kills the "Thinking…" prose
   // false positive. Non-exhaustive by design; the bare tokens pattern
   // above is the authoritative fallback.
-  /\b(?:Combobulating|Beaming|Thinking|Pondering|Reticulating|Configuring|Noodling|Ruminating|Percolating|Cogitating|Deliberating|Contemplating|Musing|Brewing|Synthesizing|Distilling|Refining|Simmering|Crafting|Formulating|Consulting|Unfurling|Unspooling|Unraveling)…\s*\(\s*\d+s\s*·\s*↓/,
+  /(?:Combobulating|Beaming|Thinking|Pondering|Reticulating|Configuring|Noodling|Ruminating|Percolating|Cogitating|Deliberating|Contemplating|Musing|Brewing|Synthesizing|Distilling|Refining|Simmering|Crafting|Formulating|Consulting|Unfurling|Unspooling|Unraveling)…\s*\(\s*\d+s\s*·\s*↓/,
 ]
 
+// `esc to interrupt` is footer-scoped: it appears in the bottom status bar
+// while a turn is mid-flight. Checking it against the full pane causes false
+// positives when old collapsed tool-output sections in scrollback contain a
+// previous status bar line with "esc to interrupt". Check only in the last
+// FOOTER_TAIL_LINES lines so scrollback artifacts are ignored.
+const BUSY_INDICATORS_FOOTER: RegExp[] = [
+  /esc to interrupt/,
+]
+const FOOTER_TAIL_LINES = 10
+
+// Legacy alias so existing unit-test imports still compile.
+const BUSY_INDICATORS: RegExp[] = [...BUSY_INDICATORS_GLOBAL, ...BUSY_INDICATORS_FOOTER]
 // Pasted-text placeholder. Claude Code lifts bursts of input keys into
 // `[Pasted text #N +X chars]` stubs, which sit in the input buffer and
 // never auto-submit on Enter. Treat as busy so the scheduler doesn't pile
@@ -213,8 +225,12 @@ export function detectPaneState(
 ): PaneState {
   if (!pane || !pane.trim()) return 'unknown'
 
-  for (const rx of BUSY_INDICATORS) {
+  for (const rx of BUSY_INDICATORS_GLOBAL) {
     if (rx.test(pane)) return 'busy'
+  }
+  const footerTail = pane.split('\n').slice(-FOOTER_TAIL_LINES).join('\n')
+  for (const rx of BUSY_INDICATORS_FOOTER) {
+    if (rx.test(footerTail)) return 'busy'
   }
 
   if (!IDLE_FOOTER_RX.test(pane)) return 'unknown'

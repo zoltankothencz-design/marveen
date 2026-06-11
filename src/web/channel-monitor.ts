@@ -52,6 +52,19 @@ function getClaudePidForSession(session: string): number | null {
   }
 }
 
+// tg-bridge.py health check -- used instead of plugin liveness for Marveen.
+// The Telegram Claude plugin is intentionally disabled; tg-bridge.py handles
+// Telegram polling via getUpdates + tmux inject. If tg-bridge.py dies,
+// the Telegram channel is effectively dead.
+function isTgBridgeAlive(): boolean {
+  try {
+    const out = execFileSync('/usr/bin/pgrep', ['-f', 'tg-bridge.py'], { timeout: 3000, encoding: 'utf-8' }).trim()
+    return out.length > 0
+  } catch {
+    return false
+  }
+}
+
 function hasChannelPluginAlive(claudePid: number, providerType: ChannelProviderType, agentName?: string): boolean {
   try {
     const ps = execFileSync('/bin/ps', ['-axo', 'pid,ppid,command'], { timeout: 3000, encoding: 'utf-8' })
@@ -322,6 +335,12 @@ function handleMarveenDown(): void {
     sendAlert(`🚨 Hard restart SEM segitett. Kezzel kell megnezni: \`unset TMUX && tmux attach -t ${MAIN_CHANNELS_SESSION}\` es ${serviceCmd}.`)
     return
   }
+  // gave_up: already notified once -- do not spam repeat alerts.
+  // The user was told to check manually; further pings add no value.
+  if (marveenDownState.stage === 'gave_up') {
+    logger.debug({ provider: providerLabel }, 'Channel plugin still down (gave_up), skipping repeat alert')
+    return
+  }
   if (now - marveenDownState.lastAlertAt > PLUGIN_ALERT_DEDUP_MS) {
     marveenDownState.lastAlertAt = now
     sendAlert(`🚨 Marveen ${providerLabel} plugin meg mindig halott. Nezd meg kezzel.`)
@@ -405,7 +424,11 @@ export function startChannelPluginMonitor(): NodeJS.Timeout {
         }
         continue
       }
-      const alive = hasChannelPluginAlive(claudePid, t.provider, t.agentName)
+      // For Marveen: check tg-bridge.py instead of the Claude plugin
+      // (plugin is intentionally disabled; tg-bridge handles Telegram)
+      const alive = t.isMarveen
+        ? isTgBridgeAlive()
+        : hasChannelPluginAlive(claudePid, t.provider, t.agentName)
       if (alive) {
         if (t.isMarveen) {
           handleMarveenUp()

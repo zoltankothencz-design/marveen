@@ -32,11 +32,16 @@ import {
   isAgentRunning,
   isSessionReadyForPrompt,
   sendPromptToSession,
+  capturePane,
 } from './agent-process.js'
 import { MAIN_CHANNELS_SESSION } from './main-agent.js'
 import { sendTelegramMessage } from './telegram.js'
 
 const TMUX = resolveFromPath('tmux')
+
+// Ha egy session token-szama meghaladja ezt a hatart, /compact kuldunk
+// a heartbeat prompt elott, hogy a feladat friss contexten fusson.
+const SCHEDULER_COMPACT_THRESHOLD_K = 120
 
 // --- Schedule Runner ---
 // Checks every minute if any scheduled task is due and injects the prompt
@@ -110,8 +115,39 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number): '
     if (task.goal) {
       const goalCmd = `/goal ${task.goal}`
       execFileSync(TMUX, ['send-keys', '-t', session, goalCmd, 'Enter'], { timeout: 5000 })
-      // Varunk egy pillanatot hogy a /goal feldolgozodjon mielott a prompt erkezik
-      execSync('sleep 1', { timeout: 3000 })
+      // Poll until the session is idle again after /goal -- a fixed 1s sleep was too
+      // short: /goal involves a model round-trip (2-5s) and the prompt chunks arrived
+      // while the goal text was still in the buffer, producing a "goal too long" error.
+      // Brief initial pause so Claude Code has time to start processing before we poll.
+      execFileSync('/bin/sleep', ['0.5'], { timeout: 2000 })
+      const GOAL_MAX_WAIT_MS = 10_000
+      const goalWaitStart = Date.now()
+      let goalSettled = false
+      while (Date.now() - goalWaitStart < GOAL_MAX_WAIT_MS) {
+        if (isSessionReadyForPrompt(session)) { goalSettled = true; break }
+        execFileSync('/bin/sleep', ['0.5'], { timeout: 2000 })
+      }
+      if (!goalSettled) logger.warn({ task: task.name, session }, '/goal did not settle within 10s, proceeding anyway')
+    }
+    // Token-check: ha a session >SCHEDULER_COMPACT_THRESHOLD_K tokennél jár,
+    // /compact-ot küldünk előtte hogy a feladat friss contexten fusson.
+    const paneForCompact = capturePane(session)
+    if (paneForCompact) {
+      const tokenMatch = paneForCompact.match(/~(\d+(?:\.\d+)?)k uncached|save (\d+(?:\.\d+)?)k tokens/)
+      if (tokenMatch) {
+        const tokenK = parseFloat(tokenMatch[1] ?? tokenMatch[2] ?? '0')
+        if (tokenK >= SCHEDULER_COMPACT_THRESHOLD_K) {
+          logger.info({ task: task.name, session, tokenK }, 'Pre-task /compact: session token count high')
+          execFileSync(TMUX, ['send-keys', '-t', session, '/compact', 'Enter'], { timeout: 5000 })
+          // Varunk hogy a /compact feldolgozodjon (max 30s)
+          const compactStart = Date.now()
+          while (Date.now() - compactStart < 30_000) {
+            execFileSync('/bin/sleep', ['1'], { timeout: 2000 })
+            if (isSessionReadyForPrompt(session)) break
+          }
+          logger.info({ task: task.name, session }, 'Pre-task /compact done, sending prompt')
+        }
+      }
     }
     sendPromptToSession(session, fullPrompt)
     scheduleLastRun.set(task.name, now)

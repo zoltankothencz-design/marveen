@@ -1,9 +1,12 @@
 #!/bin/bash
-# Marketing agent startup script
-INSTALL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-AGENT_DIR="$INSTALL_DIR/agents/marketing"
-SESSION="agent-marketing"
+# Tester agent startup script
+# Starts the QA/testing agent in a tmux session
 
+INSTALL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+AGENT_DIR="$INSTALL_DIR/agents/tester"
+SESSION="agent-tester"
+
+# Read OAuth/API key from .env without polluting environment
 if [ -f "$INSTALL_DIR/.env" ]; then
   _oauth="$(grep -E '^CLAUDE_CODE_OAUTH_TOKEN=' "$INSTALL_DIR/.env" | head -1 | cut -d= -f2-)"
   [ -n "$_oauth" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_oauth"
@@ -12,15 +15,17 @@ if [ -f "$INSTALL_DIR/.env" ]; then
   unset _oauth _api_key
 fi
 
-export PATH="/home/userzoltan/.bun/bin:/home/userzoltan/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 CLAUDE="$(command -v claude)"
 TMUX_BIN="$(command -v tmux)"
 
 [ -z "$CLAUDE" ] && echo "ERROR: claude not found" >&2 && exit 1
 [ -z "$TMUX_BIN" ] && echo "ERROR: tmux not found" >&2 && exit 1
 
+# Kill existing session if any
 $TMUX_BIN kill-session -t "$SESSION" 2>/dev/null
 
+# Check if we have a prior session to continue
 ENCODED_DIR="${AGENT_DIR//\//-}"
 PROJECTS_ROOT="$HOME/.claude/projects"
 if [ -d "$PROJECTS_ROOT/$ENCODED_DIR" ]; then
@@ -29,15 +34,14 @@ else
   CONTINUE_FLAG=""
 fi
 
-# Onujraindito wrapper: ha a claude process barmiert kilep (feladat
-# befejezese, crash, stb.), 30 masodperc utan ujraindul.
+# Start agent in tmux
 $TMUX_BIN new-session -d -s "$SESSION" -c "$AGENT_DIR" \
-  "while true; do $CLAUDE ${CONTINUE_FLAG}--dangerously-skip-permissions --model claude-sonnet-4-6; sleep 30; done"
+  "$CLAUDE ${CONTINUE_FLAG}--dangerously-skip-permissions --model claude-sonnet-4-6"
 
-echo "Marketing agent started in tmux session: $SESSION"
+echo "Tester agent started in tmux session: $SESSION"
 echo "Attach with: tmux attach -t $SESSION"
 
-# Auto-elfogad first-run dialogusokat (bypass permissions, trust folder)
+# Auto-accept first-run dialogs
 for i in $(seq 1 12); do
   sleep 1
   pane=$($TMUX_BIN capture-pane -t "$SESSION" -p 2>/dev/null || true)
@@ -51,7 +55,7 @@ for i in $(seq 1 12); do
       sleep 1
       ;;
     *">"*|*"claude"*)
-      echo "Marketing agent session ready."
+      echo "Tester session ready."
       break
       ;;
   esac

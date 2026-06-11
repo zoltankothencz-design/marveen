@@ -69,6 +69,23 @@ else
     echo "$(date -Iseconds) [sessions] tg-bridge-wd mar fut" >> "$LOG"
 fi
 
+# Tester agent (QA / website / API / browser game tesztelés)
+if ! tmux has-session -t agent-tester 2>/dev/null; then
+    sleep 2
+    bash "$INSTALL_DIR/scripts/start-tester.sh" >> "$LOG" 2>&1 &
+    echo "$(date -Iseconds) [sessions] tester elindult" >> "$LOG"
+else
+    echo "$(date -Iseconds) [sessions] tester mar fut" >> "$LOG"
+fi
+
+# Igaming piackutato agent
+if ! tmux has-session -t agent-igaming 2>/dev/null; then
+    bash "$INSTALL_DIR/scripts/start-igaming.sh" >> "$LOG" 2>&1 &
+    echo "$(date -Iseconds) [sessions] igaming elindult" >> "$LOG"
+else
+    echo "$(date -Iseconds) [sessions] igaming mar fut" >> "$LOG"
+fi
+
 # Watchdog daemon
 if ! tmux has-session -t marveen-watchdog 2>/dev/null; then
     bash "$INSTALL_DIR/scripts/start-watchdog-daemon.sh" >> "$LOG" 2>&1

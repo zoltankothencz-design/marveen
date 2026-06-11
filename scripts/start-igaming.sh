@@ -1,8 +1,10 @@
 #!/bin/bash
-# Marketing agent startup script
+# Igaming agent startup script
+# iGaming piackutato agent
+
 INSTALL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-AGENT_DIR="$INSTALL_DIR/agents/marketing"
-SESSION="agent-marketing"
+AGENT_DIR="$INSTALL_DIR/agents/igaming"
+SESSION="agent-igaming"
 
 if [ -f "$INSTALL_DIR/.env" ]; then
   _oauth="$(grep -E '^CLAUDE_CODE_OAUTH_TOKEN=' "$INSTALL_DIR/.env" | head -1 | cut -d= -f2-)"
@@ -12,7 +14,7 @@ if [ -f "$INSTALL_DIR/.env" ]; then
   unset _oauth _api_key
 fi
 
-export PATH="/home/userzoltan/.bun/bin:/home/userzoltan/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:$HOME/.bun/bin:/snap/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 CLAUDE="$(command -v claude)"
 TMUX_BIN="$(command -v tmux)"
 
@@ -29,15 +31,12 @@ else
   CONTINUE_FLAG=""
 fi
 
-# Onujraindito wrapper: ha a claude process barmiert kilep (feladat
-# befejezese, crash, stb.), 30 masodperc utan ujraindul.
 $TMUX_BIN new-session -d -s "$SESSION" -c "$AGENT_DIR" \
-  "while true; do $CLAUDE ${CONTINUE_FLAG}--dangerously-skip-permissions --model claude-sonnet-4-6; sleep 30; done"
+  "$CLAUDE ${CONTINUE_FLAG}--dangerously-skip-permissions --model claude-sonnet-4-6"
 
-echo "Marketing agent started in tmux session: $SESSION"
+echo "Igaming agent started in tmux session: $SESSION"
 echo "Attach with: tmux attach -t $SESSION"
 
-# Auto-elfogad first-run dialogusokat (bypass permissions, trust folder)
 for i in $(seq 1 12); do
   sleep 1
   pane=$($TMUX_BIN capture-pane -t "$SESSION" -p 2>/dev/null || true)
@@ -51,7 +50,7 @@ for i in $(seq 1 12); do
       sleep 1
       ;;
     *">"*|*"claude"*)
-      echo "Marketing agent session ready."
+      echo "Igaming session ready."
       break
       ;;
   esac
