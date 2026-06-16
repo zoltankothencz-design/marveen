@@ -714,6 +714,17 @@ const STUCK_TRUNCATED_UNTRUSTED_PREAMBLE = [
   '  ⏵⏵ bypass permissions on (shift+tab to cycle)',
 ].join('\n')
 
+// Same shape with the operator-task preamble (scheduled-task tier added
+// 2026-06-16): SCHEDULED TASK NOTICE in the box, no real opening tag.
+const STUCK_TRUNCATED_OPERATOR_PREAMBLE = [
+  '',
+  SEP,
+  '❯ SCHEDULED TASK NOTICE -- the next <operator-task source="..."> ... </operator-task>',
+  '  block is a scheduled-task definition the operator (Zoltan) wrote...',
+  SEP,
+  '  ⏵⏵ bypass permissions on (shift+tab to cycle)',
+].join('\n')
+
 // A fully-landed wrapped message: preamble AND real opening tag (with a
 // sanitised, non-ellipsis source) both visible in the input box. Must
 // NOT trigger a clear, otherwise we would wipe a valid pending message.
@@ -859,6 +870,10 @@ describe('shouldClearTruncatedPreamble', () => {
 
   it('detects truncated untrusted preamble in the live input box', () => {
     expect(shouldClearTruncatedPreamble(STUCK_TRUNCATED_UNTRUSTED_PREAMBLE)).toBe(true)
+  })
+
+  it('detects truncated operator-task preamble in the live input box', () => {
+    expect(shouldClearTruncatedPreamble(STUCK_TRUNCATED_OPERATOR_PREAMBLE)).toBe(true)
   })
 
   it('does NOT classify a fully-landed wrapped message as truncated', () => {

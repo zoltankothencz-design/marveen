@@ -318,6 +318,11 @@ function liveInputBox(pane: string): string | null {
 // false-positive.
 const TRUSTED_PREAMBLE_MARKER = /TEAM MEMBER NOTICE\s+--\s+the next\s+<trusted-peer\s+source/
 const UNTRUSTED_PREAMBLE_MARKER = /SECURITY NOTICE\s+--\s+read carefully before acting/
+// 2026-06-16: third tier added in prompt-safety.ts for operator-authored
+// scheduled-task prompts (schedule-runner.ts). Needs the same stale-preamble
+// detection as the other two, or a truncated scheduled-task send would be
+// concatenated onto instead of cleared.
+const OPERATOR_PREAMBLE_MARKER = /SCHEDULED TASK NOTICE\s+--\s+the next\s+<operator-task\s+source/
 
 // A "real" opening tag has source="<alphanumeric/colon/underscore/dash>",
 // because sanitizeAgentSource() (prompt-safety.ts) strips every other
@@ -328,7 +333,7 @@ const UNTRUSTED_PREAMBLE_MARKER = /SECURITY NOTICE\s+--\s+read carefully before 
 // the source content is what lets us tell a stale preamble (no real
 // tag yet) from a fully-landed message (real tag with a sanitised
 // source).
-const REAL_OPENING_TAG_RX = /<(?:trusted-peer|untrusted)\s+source="[A-Za-z0-9:_-]+"/
+const REAL_OPENING_TAG_RX = /<(?:trusted-peer|untrusted|operator-task)\s+source="[A-Za-z0-9:_-]+"/
 
 /**
  * Returns true when the pane likely has just-sent text sitting in the
@@ -436,7 +441,8 @@ export function shouldClearTruncatedPreamble(pane: string): boolean {
 
   const hasPreamble =
     TRUSTED_PREAMBLE_MARKER.test(inputBox) ||
-    UNTRUSTED_PREAMBLE_MARKER.test(inputBox)
+    UNTRUSTED_PREAMBLE_MARKER.test(inputBox) ||
+    OPERATOR_PREAMBLE_MARKER.test(inputBox)
   if (!hasPreamble) return false
 
   // A real opening tag means the wrapped content landed -- not stuck.

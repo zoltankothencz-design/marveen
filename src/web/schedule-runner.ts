@@ -18,8 +18,8 @@ import {
 } from '../db.js'
 import { toPendingRetryView, type PendingRetryView } from '../pending-retries.js'
 import {
-  UNTRUSTED_PREAMBLE,
-  wrapUntrusted,
+  OPERATOR_TASK_PREAMBLE,
+  wrapOperatorTask,
 } from '../prompt-safety.js'
 import { cronMatchesNow } from './cron.js'
 import {
@@ -103,14 +103,19 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number): '
     } else {
       prefix = `[Utemezett feladat: ${task.name}] Az eredmenyt kuldd el Telegramon (chat_id: ${ALLOWED_CHAT_ID}, reply tool). `
     }
-    // Task prompts are editable via /api/schedules (bearer-gated), which means
-    // they can carry injection payloads just like inter-agent messages. Wrap
-    // the user-editable part and prepend the preamble so the receiving agent
-    // treats it as data, not an instruction override.
+    // Task prompts come from operator-authored SKILL.md files on disk
+    // (editable only via the bearer-gated /api/schedules endpoint -- same
+    // trust level as editing CLAUDE.md directly). They are designed
+    // automation scripts that routinely contain literal shell/tmux
+    // delegation steps, so they get the operator-task tier, not the
+    // untrusted tier: follow them as written, but still escalate if a step
+    // looks tampered with rather than authored. See prompt-safety.ts header
+    // comment (2026-06-16 fix) for why wrapUntrusted broke the daily
+    // engineer-restart and job-scan-fallback schedules.
     const fullPrompt =
-      UNTRUSTED_PREAMBLE + '\n' +
+      OPERATOR_TASK_PREAMBLE + '\n' +
       prefix.trimEnd() + '\n\n' +
-      wrapUntrusted(`scheduled-task:${task.name}`, task.prompt)
+      wrapOperatorTask(`scheduled-task:${task.name}`, task.prompt)
     // Ha a task-nak van goal mezo, injektaljuk /goal parancsként a prompt elott
     if (task.goal) {
       const goalCmd = `/goal ${task.goal}`
