@@ -168,9 +168,11 @@ check_goal_achieved() {
 
 check_job_scan() {
     # Csak 11:05 és 14:00 között fut (ha a system felébredt és a cron kihagyta)
+    # 10# prefix: elkeruli hogy bash octal-kent ertelmezze a vezeto nullas
+    # ertekeket (pl. "09" ervenytelen octal -> "value too great for base" hiba)
     HOUR=$(date +%H)
     MIN=$(date +%M)
-    HHMM=$((HOUR * 60 + MIN))
+    HHMM=$((10#$HOUR * 60 + 10#$MIN))
     # 11:05 = 665, 14:00 = 840
     [ "$HHMM" -lt 665 ] || [ "$HHMM" -gt 840 ] && return
 
