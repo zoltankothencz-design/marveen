@@ -201,6 +201,8 @@ def main():
 
     log('=== TG-BRIDGE INDUL ===')
 
+    _net_errors = 0
+
     while True:
         try:
             off = int(open(OFFSET).read().strip())
@@ -231,10 +233,24 @@ def main():
                 log(f'IN: {user}: {text[:60]}')
                 reply = ask_marveen(text)
                 log(f'OUT: {reply[:80]}')
+            _net_errors = 0
         except KeyboardInterrupt:
             break
         except Exception as e:
-            log(f'ERR: {e}')
+            err_str = str(e).lower()
+            is_net_err = any(x in err_str for x in ('unreachable', 'timed out', 'timeout', 'connection', 'ssl'))
+            if is_net_err:
+                _net_errors += 1
+                if _net_errors == 1:
+                    log(f'HALOZATI HIBA -- DNS flush kiserlet')
+                    subprocess.run(['resolvectl', 'flush-caches'], capture_output=True, timeout=5)
+                wait = min(60 * _net_errors, 300)
+                log(f'HALOZATI HIBA #{_net_errors}: {e} -- {wait}s varakozas')
+                time.sleep(wait)
+                continue
+            else:
+                _net_errors = 0
+                log(f'ERR: {e}')
 
         time.sleep(5)
 

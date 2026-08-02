@@ -96,7 +96,7 @@ sleep 2
 # Ha mindketto polloz, 409 Conflict jon es a hanguzeneteket a plugin elkapja,
 # a tg-bridge nem latja. tg-bridge kezeli a text+hang I/O-t, Marveen notify.sh-val valaszol.
 $TMUX_BIN new-session -d -s "$SESSION" -c "$INSTALL_DIR" \
-  "$CLAUDE --dangerously-skip-permissions"
+  "$CLAUDE --dangerously-skip-permissions --mcp-config $INSTALL_DIR/.mcp.json"
 
 # Session startup guard: a Claude Code first-run dialogusait auto-accept-eljuk
 # kulonben a headless session orokre parkolna a prompton es a Telegram plugin

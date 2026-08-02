@@ -4365,6 +4365,11 @@ async function loadDailyLog() {
     logDates = []
   }
 
+  // Ha ma nincs bejegyzes, ugorj az utolso datumra ami tartalmaz valamit
+  if (logDates.length > 0 && !logDates.includes(currentLogDate)) {
+    currentLogDate = logDates[0]
+  }
+
   document.getElementById('logCurrentDate').textContent = formatLogDate(currentLogDate)
 
   try {

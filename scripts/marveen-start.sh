@@ -16,7 +16,7 @@ tmux start-server 2>/dev/null || true
 if ! tmux has-session -t marveen-dashboard 2>/dev/null; then
     log "Dashboard inditas (node)..."
     tmux new-session -d -s marveen-dashboard -c "$INSTALL_DIR" \
-        "node dist/index.js >> /tmp/marveen-dashboard.log 2>&1"
+        "WEB_HOST=0.0.0.0 node dist/index.js >> /tmp/marveen-dashboard.log 2>&1"
     sleep 3
     log "Dashboard session elindult"
 else

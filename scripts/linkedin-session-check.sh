@@ -49,7 +49,7 @@ else
   bash /home/userzoltan/marveen/scripts/notify.sh "🔄 LinkedIn session lejárt – automatikus megújítás indul..."
 
   # Auto-login futtatása Windows oldalon
-  RESULT=$(cmd.exe /c "node C:\\temp\\linkedin-auto-login.cjs" 2>&1)
+  RESULT=$(/mnt/c/Windows/System32/cmd.exe /c "node C:\\temp\\linkedin-auto-login.cjs" 2>&1)
   EXIT=$?
 
   if [ $EXIT -eq 0 ]; then

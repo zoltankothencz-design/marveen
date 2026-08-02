@@ -23,22 +23,32 @@ $TMUX_BIN kill-session -t "$SESSION" 2>/dev/null
 
 ENCODED_DIR="${AGENT_DIR//\//-}"
 PROJECTS_ROOT="$HOME/.claude/projects"
-if [ -d "$PROJECTS_ROOT/$ENCODED_DIR" ]; then
-  CONTINUE_FLAG="--continue "
-else
-  CONTINUE_FLAG=""
-fi
+LOOP_LOG="/home/userzoltan/marveen/store/marketing-loop.log"
 
-# Onujraindito wrapper: ha a claude process barmiert kilep (feladat
-# befejezese, crash, stb.), 30 masodperc utan ujraindul.
+# Onujraindito wrapper: CONTINUE_FLAG dinamikusan szamitodik minden
+# iteracioban, hogy a lezart --continue session ne okozzon hibas ujrainditast.
+# FAIL_COUNT: ha 3x egymás után nem nullás exit code, töröljük a --continue flaget
+# (megvédés az ismételten hibás/túl hosszú context-ből való végtelen újraindítástól).
 $TMUX_BIN new-session -d -s "$SESSION" -c "$AGENT_DIR" \
-  "while true; do $CLAUDE ${CONTINUE_FLAG}--dangerously-skip-permissions --model claude-sonnet-4-6; sleep 30; done"
+  "FAIL_COUNT=0
+  while true; do
+    if [ -d \"$PROJECTS_ROOT/$ENCODED_DIR\" ] && [ \$FAIL_COUNT -lt 3 ]; then CF='--continue '; else CF=''; fi
+    $CLAUDE \${CF}--dangerously-skip-permissions --model claude-sonnet-4-6
+    EC=\$?
+    echo \"\$(date -Iseconds) exited ec=\$EC fail_count=\$FAIL_COUNT\" >> \"$LOOP_LOG\"
+    if [ \$EC -ne 0 ]; then
+      FAIL_COUNT=\$((FAIL_COUNT + 1))
+    else
+      FAIL_COUNT=0
+    fi
+    sleep 30
+  done"
 
 echo "Marketing agent started in tmux session: $SESSION"
 echo "Attach with: tmux attach -t $SESSION"
 
-# Auto-elfogad first-run dialogusokat (bypass permissions, trust folder)
-for i in $(seq 1 12); do
+# Auto-elfogad first-run dialogusokat (bypass permissions, trust folder, resume dialog)
+for i in $(seq 1 20); do
   sleep 1
   pane=$($TMUX_BIN capture-pane -t "$SESSION" -p 2>/dev/null || true)
   case "$pane" in
@@ -50,7 +60,11 @@ for i in $(seq 1 12); do
       $TMUX_BIN send-keys -t "$SESSION" "1" Enter
       sleep 1
       ;;
-    *">"*|*"claude"*)
+    *"Resume from summary"*|*"Resume full session"*)
+      $TMUX_BIN send-keys -t "$SESSION" "" Enter
+      sleep 2
+      ;;
+    *"bypass permissions on"*|*"? for shortcuts"*)
       echo "Marketing agent session ready."
       break
       ;;

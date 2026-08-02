@@ -14,9 +14,7 @@ const STATE_FILE = path.join(__dirname, '../store/linkedin-session.json');
 
   const browser = await chromium.launch({
     headless: false,
-    executablePath: process.env.PLAYWRIGHT_BROWSERS_PATH
-      ? `${process.env.PLAYWRIGHT_BROWSERS_PATH}/chromium-1226/chrome-linux64/chrome`
-      : undefined,
+    executablePath: '/home/userzoltan/.cache/ms-playwright/chromium-1226/chrome-linux64/chrome',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 

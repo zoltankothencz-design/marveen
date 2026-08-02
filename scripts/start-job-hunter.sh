@@ -25,19 +25,12 @@ TMUX_BIN="$(command -v tmux)"
 # Kill existing session if any
 $TMUX_BIN kill-session -t "$SESSION" 2>/dev/null
 
-# Check if we have a prior session to continue
-ENCODED_DIR="${AGENT_DIR//\//-}"
-PROJECTS_ROOT="$HOME/.claude/projects"
-if [ -d "$PROJECTS_ROOT/$ENCODED_DIR" ]; then
-  CONTINUE_FLAG="--continue "
-else
-  CONTINUE_FLAG=""
-fi
-
 # Start agent in tmux (without --channels, no dedicated Telegram bot)
 # The schedule runner will inject prompts via tmux send-keys
+# --continue szándékosan nincs: a befejezett session visszatöltése blokkolt
+# állapotot okoz, ahol a tmux send-keys parancsok beíródnak de nem futnak el.
 $TMUX_BIN new-session -d -s "$SESSION" -c "$AGENT_DIR" \
-  "$CLAUDE ${CONTINUE_FLAG}--dangerously-skip-permissions --model claude-sonnet-4-6"
+  "$CLAUDE --dangerously-skip-permissions --model claude-sonnet-4-6"
 
 echo "Job Hunter agent started in tmux session: $SESSION"
 echo "Attach with: tmux attach -t $SESSION"
