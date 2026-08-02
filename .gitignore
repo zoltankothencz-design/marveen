@@ -60,3 +60,5 @@ credentials.md
 *.pem
 *.pfx
 .ssh/
+.playwright-mcp/
+scripts/__pycache__/
