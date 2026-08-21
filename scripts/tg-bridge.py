@@ -3,7 +3,7 @@
 tg-bridge.py -- Telegram <-> Marveen hid
 Tmux inject + notify.sh log polling + session restart context injection
 """
-import json, os, subprocess, sys, tempfile, time, urllib.request, urllib.parse
+import json, os, re, subprocess, sys, tempfile, time, urllib.request, urllib.parse
 
 TOKEN      = open('/home/userzoltan/marveen/.env').read().split('TELEGRAM_BOT_TOKEN=')[1].split()[0]
 ALLOWED    = '7397490330'
@@ -26,8 +26,40 @@ def tg_get(method, **params):
     with urllib.request.urlopen(url, timeout=10) as r:
         return json.loads(r.read())
 
+def tg_send_direct(text):
+    """Direkt Telegram uzenet Zoltannak Bot API POST-tal (nem notify.sh)."""
+    try:
+        data = json.dumps({'chat_id': ALLOWED, 'text': text}).encode()
+        req = urllib.request.Request(
+            f'https://api.telegram.org/bot{TOKEN}/sendMessage',
+            data=data,
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+    except Exception as e:
+        log(f'tg_send_direct hiba: {e}')
+        return None
+
 WHISPER_PYTHON = '/home/userzoltan/.whisper-venv/bin/python3'
 STT_SCRIPT    = '/home/userzoltan/marveen/scripts/stt.py'
+TG_IMAGES_DIR = '/home/userzoltan/marveen/store/tg-images'
+
+def download_photo(file_id):
+    """Telegram kep letoltese helyi fajlba, visszaadja az elerhesi utat."""
+    try:
+        os.makedirs(TG_IMAGES_DIR, exist_ok=True)
+        info = tg_get('getFile', file_id=file_id)
+        file_path = info['result']['file_path']
+        ext = os.path.splitext(file_path)[1] or '.jpg'
+        dl_url = f'https://api.telegram.org/file/bot{TOKEN}/{file_path}'
+        local_path = os.path.join(TG_IMAGES_DIR, f'{time.strftime("%Y%m%d-%H%M%S")}{ext}')
+        urllib.request.urlretrieve(dl_url, local_path)
+        return local_path
+    except Exception as e:
+        log(f'KEP LETOLTES HIBA: {e}')
+        return None
 
 def transcribe_voice(file_id):
     """Telegram hanguzenet letoltese es helyi Whisper atirasa."""
@@ -137,6 +169,58 @@ def check_restart_context():
 
 # --- Fo uzenetkuldő ---
 
+# --- Session readiness check (pane-state.ts logika alapjan) ---
+# Idle: "bypass permissions on" VAGY "? for shortcuts" lathato a pane-ben
+# Busy: "esc to interrupt" VAGY spinner glyph-ok jelen vannak
+_IDLE_FOOTER_RX = re.compile(r'bypass permissions on|\? for shortcuts')
+_BUSY_RX        = re.compile(r'esc to interrupt|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]')
+
+def _capture_pane(session):
+    try:
+        r = subprocess.run(
+            [TMUX, 'capture-pane', '-t', session, '-p'],
+            capture_output=True, text=True, timeout=5
+        )
+        return r.stdout if r.returncode == 0 else None
+    except Exception:
+        return None
+
+def _is_session_ready(session, max_wait=60):
+    """Double-sample idle check, max_wait masodpercig var. Visszater True/False."""
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        pane = _capture_pane(session)
+        if pane and not _BUSY_RX.search(pane) and _IDLE_FOOTER_RX.search(pane):
+            # Elso sample idle -- dupla megerosites 300ms utan
+            time.sleep(0.3)
+            pane2 = _capture_pane(session)
+            if pane2 and _IDLE_FOOTER_RX.search(pane2) and not _BUSY_RX.search(pane2):
+                return True
+        time.sleep(3)
+    return False
+
+def _inject_to_session(session, inject):
+    """Tmux send-keys injektalas. Raise ha a session nem elerheto."""
+    subprocess.run([TMUX, 'send-keys', '-t', session, '-l', inject], timeout=10)
+    time.sleep(0.7)
+    subprocess.run([TMUX, 'send-keys', '-t', session, 'Enter'], timeout=5)
+
+def _wait_for_reply(log_before, wait_secs=90):
+    """Varakozas notify.log novekedesere. Visszaadja a valaszt vagy None-t."""
+    for _ in range(wait_secs // 2):
+        time.sleep(2)
+        try:
+            size = os.path.getsize(LOG_NOTIFY)
+            if size > log_before:
+                with open(LOG_NOTIFY) as f:
+                    lines = f.readlines()
+                last = lines[-1].strip() if lines else ''
+                if '|' in last:
+                    return last.split('|', 1)[1]
+        except Exception:
+            pass
+    return None
+
 def ask_marveen(user_msg):
     session = 'marveen-channels'
     single = user_msg.replace('\n', ' ')
@@ -158,26 +242,36 @@ def ask_marveen(user_msg):
     except Exception:
         pass
 
-    subprocess.run([TMUX, 'send-keys', '-t', session, '-l', inject], timeout=10)
-    time.sleep(0.7)
-    subprocess.run([TMUX, 'send-keys', '-t', session, 'Enter'], timeout=5)
+    # Readiness check: varunk amig a session idle, max 60 mp
+    if not _is_session_ready(session, max_wait=60):
+        log('Session nem idle 60 mp utan -- injektalas mindenkeppen megprobaljuk')
 
-    # Varakozas Marveen valaszara (max 90 masodperc)
-    for _ in range(45):
-        time.sleep(2)
-        try:
-            size = os.path.getsize(LOG_NOTIFY)
-            if size > log_before:
-                with open(LOG_NOTIFY) as f:
-                    lines = f.readlines()
-                last = lines[-1].strip() if lines else ''
-                if '|' in last:
-                    reply = last.split('|', 1)[1]
-                    save_to_history(user_msg, reply)
-                    return reply
-        except Exception:
-            pass
-    return 'Nincs valasz 90 masodpercen belul.'
+    # 1. kisérlet
+    _inject_to_session(session, inject)
+    reply = _wait_for_reply(log_before, wait_secs=90)
+    if reply:
+        save_to_history(user_msg, reply)
+        return reply
+
+    # 2. kisérlet (retry) -- ha az inject nem jutott be vagy Marveen lassan indult
+    log('Nincs valasz 90 mp utan -- retry (2. injektalas)...')
+    try:
+        log_before2 = os.path.getsize(LOG_NOTIFY)
+    except Exception:
+        log_before2 = log_before
+    _inject_to_session(session, inject)
+    reply = _wait_for_reply(log_before2, wait_secs=90)
+    if reply:
+        save_to_history(user_msg, reply)
+        return reply
+
+    # Mindket kisérlet meghiusult -- Zoltant direkt ertesitjuk
+    log('Mindket kisérlet meghiusult -- direkt Telegram ertesites Zoltannak')
+    short = single[:80] + ('...' if len(single) > 80 else '')
+    tg_send_direct(
+        f'⚠️ Marveen nem valaszolt idoben (2x90mp). Az uzeneted elveszett:\n"{short}"\n\nKerem probald ujra.'
+    )
+    return 'Nincs valasz 90 masodpercen belul (retry utan sem). Ertesites kuldve.'
 
 def main():
     if not os.path.exists(OFFSET):
@@ -215,6 +309,7 @@ def main():
                 chat = str(msg.get('chat', {}).get('id', ''))
                 text = msg.get('text', '').strip()
                 voice = msg.get('voice') or msg.get('audio')
+                photo = msg.get('photo')
                 user = msg.get('from', {}).get('first_name', 'User')
 
                 if voice and chat == ALLOWED:
@@ -225,6 +320,18 @@ def main():
                         log(f'HANG->SZOVEG: {text[:80]}')
                     else:
                         log('HANG: atiras sikertelen, kihagyva')
+                        continue
+
+                if photo and chat == ALLOWED:
+                    largest = photo[-1]
+                    log(f'KEP: {user} kepet kuldott')
+                    img_path = download_photo(largest['file_id'])
+                    if img_path:
+                        cap = msg.get('caption', '').strip()
+                        text = f'[TELEGRAM KEP: {img_path}]' + (f' [FELIRAT: {cap}]' if cap else '')
+                        log(f'KEP LETOLTVE: {img_path}')
+                    else:
+                        log('KEP: letoltes sikertelen, kihagyva')
                         continue
 
                 if not text or chat != ALLOWED:
