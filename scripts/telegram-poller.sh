@@ -3,7 +3,7 @@
 # - Saját Telegram polling (a --channels plugin alternatívája)
 # - Channel-formátumú inject a marveen-channels sessionbe
 
-TOKEN="8898852149:***REMOVED-ROTATED-TOKEN***"
+TOKEN="$(grep '^TELEGRAM_BOT_TOKEN=' /home/userzoltan/marveen/.env | cut -d= -f2-)"
 SESSION="marveen-channels"
 OFFSET_FILE="/tmp/tg-offset"
 LOG="/tmp/tg-poller.log"
