@@ -413,6 +413,55 @@ export function initDatabase(): void {
     )
   `)
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS watched_companies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'operator' CHECK(type IN ('operator','recruiter','vendor')),
+      career_url TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_watched_companies_name ON watched_companies(name)`)
+
+  // Seed default companies if table is empty
+  const companyCount = (db.prepare('SELECT COUNT(*) as c FROM watched_companies').get() as { c: number }).c
+  if (companyCount === 0) {
+    const seedCompanies: Array<{ name: string; type?: string; career_url?: string }> = [
+      { name: 'Entain', type: 'operator' },
+      { name: 'LeoVegas', type: 'operator' },
+      { name: 'Eeze', type: 'operator' },
+      { name: 'Finnplay Technologies', type: 'operator' },
+      { name: 'Exco Game Studio', type: 'operator' },
+      { name: 'Anakatech', type: 'operator' },
+      { name: 'Over99.com', type: 'operator' },
+      { name: 'Betclic Group', type: 'operator' },
+      { name: 'B2Spin', type: 'operator' },
+      { name: 'RISK inc', type: 'operator' },
+      { name: 'Netwin', type: 'operator' },
+      { name: 'Novibet', type: 'operator' },
+      { name: 'Midnite', type: 'operator' },
+      { name: 'Lottomart', type: 'operator' },
+      { name: 'Stakemate', type: 'operator' },
+      { name: 'Casino Respect', type: 'operator' },
+      { name: 'Malacky Wise', type: 'operator' },
+      { name: 'Fungies.io', type: 'operator' },
+      { name: 'Betsson', type: 'operator' },
+      { name: 'RecruitGibraltar', type: 'recruiter' },
+    ]
+    const insertCompany = db.prepare(
+      'INSERT OR IGNORE INTO watched_companies (name, type, career_url) VALUES (?, ?, ?)'
+    )
+    const now = Math.floor(Date.now() / 1000)
+    db.transaction(() => {
+      for (const c of seedCompanies) {
+        insertCompany.run(c.name, c.type ?? 'operator', c.career_url ?? null)
+      }
+    })()
+  }
+
   // One-shot migration from the old JSON file (which had a read-modify-write
   // race). Import rows if they exist, then rename the file so we don't keep
   // re-importing. Wrapped in a transaction so a crash mid-import is safe.
@@ -1352,4 +1401,52 @@ export function updateChannelRequestStatus(id: number, status: 'approved' | 'den
 
 export function updateChannelRequestName(id: number, channelName: string): void {
   db.prepare('UPDATE pending_channel_requests SET channel_name = ? WHERE id = ?').run(channelName, id)
+}
+
+// === WATCHED COMPANIES ===
+
+export interface WatchedCompany {
+  id: number
+  name: string
+  type: 'operator' | 'recruiter' | 'vendor'
+  career_url: string | null
+  active: number
+  created_at: number
+  updated_at: number
+}
+
+export function listWatchedCompanies(activeOnly = false): WatchedCompany[] {
+  const sql = activeOnly
+    ? 'SELECT * FROM watched_companies WHERE active = 1 ORDER BY name COLLATE NOCASE'
+    : 'SELECT * FROM watched_companies ORDER BY name COLLATE NOCASE'
+  return db.prepare(sql).all() as WatchedCompany[]
+}
+
+export function createWatchedCompany(fields: { name: string; type?: string; career_url?: string | null; active?: number }): WatchedCompany {
+  const now = Math.floor(Date.now() / 1000)
+  const result = db.prepare(
+    'INSERT INTO watched_companies (name, type, career_url, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(fields.name, fields.type ?? 'operator', fields.career_url ?? null, fields.active ?? 1, now, now)
+  return db.prepare('SELECT * FROM watched_companies WHERE id = ?').get(result.lastInsertRowid) as WatchedCompany
+}
+
+export function updateWatchedCompany(id: number, fields: Partial<Omit<WatchedCompany, 'id' | 'created_at'>>): boolean {
+  const now = Math.floor(Date.now() / 1000)
+  const allowed = ['name', 'type', 'career_url', 'active'] as const
+  const updates: string[] = []
+  const values: unknown[] = []
+  for (const key of allowed) {
+    if (key in fields) {
+      updates.push(`${key} = ?`)
+      values.push((fields as Record<string, unknown>)[key])
+    }
+  }
+  if (updates.length === 0) return false
+  updates.push('updated_at = ?')
+  values.push(now, id)
+  return db.prepare(`UPDATE watched_companies SET ${updates.join(', ')} WHERE id = ?`).run(...values).changes > 0
+}
+
+export function deleteWatchedCompany(id: number): boolean {
+  return db.prepare('DELETE FROM watched_companies WHERE id = ?').run(id).changes > 0
 }

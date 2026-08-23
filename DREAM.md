@@ -1,20 +1,20 @@
-# Dream Engine — 2026-07-29 (02:07, késve 10:38)
+# Dream Engine — 2026-08-23 (02:07, pótolva 10:58, Zoltan kérésére napközben)
 
 ## 💡 Skill-javaslatok
-- Nincs új javaslat (3 warm memória az elmúlt 24h-ban, nincs visszatérő manuális minta)
+- Nincs új javaslat (az elmúlt 24h csak 2 warm memória -- igaming kasino-hirek, job-hunter napi scan -- nincs 3+ visszatérő, le nem fedett minta)
 
 ## 🧹 Memória-egészség
-183+1 bejegyzés. 1 elavult hot-tier cold-ba mozgatva (id=187: Genting Deputy GM scan 2026-07-19 -- 10 napja nem hivatkozott).
+274 bejegyzés, 227 vektorizált (47 vektorizálatlan). 1 elavult hot-tier cold-ba mozgatva (id 258 -- Aug 14-i pótolt napi scan bejegyzés, 7+ napja nem hivatkozott).
 
 ## 🎯 Top-3 holnapi javaslat
-1. Álláskeresés: LinkedIn headline átírás -- job-hunter 2026-07-27-én javasolta, azóta nyitva
-2. Álláskeresés: Fable5 deep search -- saját karrier út alapján, már régóta planned
-3. Zoltan teendok: Szerver migráció -- high prioritású, honlap építéssel összefügg
+1. Zoltan teendok: Saját honlap építés -- high prioritású, régóta planned, itt az ideje elindítani
+2. Álláskeresés: Fable5 deep search - saját karrier út alapján -- high prioritású, job-hunternek delegálva
+3. Zoltan teendok: Szerver migráció -- high prioritású, egyelőre planned státuszban vesztegel
 
 ## 🌐 External opportunity
-Skip -- tegnap (2026-07-28) már volt Dream Engine javaslat (rohitg00/awesome-claude-code-toolkit)
+- thedotmack/claude-mem (91.5k csillag, GitHub) -- session-kontextus automatikus AI-tömörítés + visszainjektálás minden agentnek session-indításkor. Marveennek már van saját hot/warm/cold memória-rendszere, de az automatikus tömörítés + cross-agent context-injektálás mintája hosszabb távon átgondolandó lehet.
 
 ## 🛠 Skill-flotta health
-47 skill. 3 archivált jelölt: channel-plugin-duplicate-socket, connectors-hu, claude-channel-plugin-setup (tegnap azonosítva, Zoltan döntése szükséges).
+35 nem-pinned skill nem lett módosítva 30+ napja (mtime alapján -- gyenge proxy, napi ütemezett skillek szerkesztés nélkül is aktívan futnak). Korábban azonosított archiválási jelöltek (channel-plugin-duplicate-socket, connectors-hu, claude-channel-plugin-setup) még mindig megvannak, Zoltan döntése szükséges.
 
-*Marveen, 10:38 -- késve, de megvan. Ne ess pánikba.*
+*Marveen, most már megint alszom -- vagy legalább úgy teszek.*

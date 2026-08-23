@@ -36,6 +36,7 @@ import { tryHandleUpdates } from './web/routes/updates.js'
 import { tryHandleStatus } from './web/routes/status.js'
 import { tryHandleAutonomy } from './web/routes/autonomy.js'
 import { tryHandleTokenUsage } from './web/routes/token-usage.js'
+import { tryHandleCompanies } from './web/routes/companies.js'
 import { tryHandleStatic } from './web/routes/static.js'
 import type { RouteContext } from './web/routes/types.js'
 
@@ -133,6 +134,7 @@ export function startWebServer(port = 3420): http.Server {
       if (await tryHandleStatus(routeCtx)) return
       if (await tryHandleAutonomy(routeCtx)) return
       if (await tryHandleTokenUsage(routeCtx)) return
+      if (await tryHandleCompanies(routeCtx)) return
       if (await tryHandleStatic(routeCtx, WEB_DIR)) return
 
       res.writeHead(404)

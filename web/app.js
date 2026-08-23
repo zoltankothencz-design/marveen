@@ -85,6 +85,7 @@ function switchPage(pageId) {
   if (pageId === 'updates') loadUpdates()
   if (pageId === 'team') loadTeamGraph()
   if (pageId === 'tokenUsage') loadTokenUsage()
+  if (pageId === 'companies') loadCompanies()
 }
 
 navLinks.forEach((link) => {
@@ -8238,3 +8239,126 @@ async function sendChatMessage() {
     input.focus()
   }
 }
+
+// === CÉGFIGYELŐ ===
+;(function () {
+  let allCompanies = []
+  let editingId = null
+  const TOKEN = () => localStorage.getItem('dashboard-token') || ''
+
+  async function loadCompanies() {
+    const showAll = document.getElementById('companiesShowAll')?.checked
+    const url = showAll ? '/api/companies' : '/api/companies?active=true'
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + TOKEN() } })
+    allCompanies = res.ok ? await res.json() : []
+    renderCompaniesList()
+  }
+  window.loadCompanies = loadCompanies
+
+  function renderCompaniesList() {
+    const list = document.getElementById('companiesList')
+    const countEl = document.getElementById('companiesCount')
+    if (!list) return
+    if (countEl) countEl.textContent = `${allCompanies.length} cég`
+    if (!allCompanies.length) {
+      list.innerHTML = '<div class="tg-allowed-empty">Nincs cég a listában.</div>'
+      return
+    }
+    list.innerHTML = allCompanies.map(c => {
+      const typeLabel = { operator: 'Operator', recruiter: 'Recruiter', vendor: 'Vendor' }[c.type] || c.type
+      const activeTag = c.active
+        ? '<span style="color:var(--accent);font-size:11px">● aktív</span>'
+        : '<span style="color:var(--text-muted);font-size:11px">○ inaktív</span>'
+      const urlTag = c.career_url
+        ? `<a href="${c.career_url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;display:inline-block;vertical-align:middle">${c.career_url}</a>`
+        : '<span style="font-size:11px;color:var(--text-muted)">nincs URL</span>'
+      return `
+        <div class="tg-allowed-item" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <strong style="font-size:14px">${escHtml(c.name)}</strong>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:6px">${escHtml(typeLabel)}</span>
+            <div style="margin-top:2px;display:flex;align-items:center;gap:10px">
+              ${activeTag}
+              ${urlTag}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn-secondary btn-compact" onclick="companiesOpenEdit(${c.id})" style="font-size:12px">Szerk.</button>
+            <button class="btn-secondary btn-compact" onclick="companiesDelete(${c.id},'${escHtml(c.name).replace(/'/g, '\\\'')}')" style="font-size:12px;color:var(--danger,#ef4444)">Törl.</button>
+          </div>
+        </div>`
+    }).join('')
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  }
+
+  function openForm(company = null) {
+    editingId = company ? company.id : null
+    document.getElementById('companiesFormTitle').textContent = company ? 'Cég szerkesztése' : 'Új cég'
+    document.getElementById('companyName').value = company?.name || ''
+    document.getElementById('companyType').value = company?.type || 'operator'
+    document.getElementById('companyCareerUrl').value = company?.career_url || ''
+    document.getElementById('companyActive').checked = company ? !!company.active : true
+    document.getElementById('companiesFormError').hidden = true
+    document.getElementById('companiesFormPanel').hidden = false
+    document.getElementById('companyName').focus()
+  }
+
+  window.companiesOpenEdit = function(id) {
+    const c = allCompanies.find(x => x.id === id)
+    if (c) openForm(c)
+  }
+
+  window.companiesDelete = async function(id, name) {
+    if (!confirm(`Törlöd: ${name}?`)) return
+    const res = await fetch(`/api/companies/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + TOKEN() }
+    })
+    if (res.ok) {
+      allCompanies = allCompanies.filter(c => c.id !== id)
+      renderCompaniesList()
+    } else {
+      alert('Törlés sikertelen.')
+    }
+  }
+
+  document.getElementById('companiesAddBtn')?.addEventListener('click', () => openForm(null))
+  document.getElementById('companiesFormClose')?.addEventListener('click', () => {
+    document.getElementById('companiesFormPanel').hidden = true
+  })
+  document.getElementById('companiesFormCancel')?.addEventListener('click', () => {
+    document.getElementById('companiesFormPanel').hidden = true
+  })
+
+  document.getElementById('companiesShowAll')?.addEventListener('change', loadCompanies)
+
+  document.getElementById('companiesFormSave')?.addEventListener('click', async () => {
+    const name = document.getElementById('companyName').value.trim()
+    const errEl = document.getElementById('companiesFormError')
+    if (!name) { errEl.textContent = 'A cégnév kötelező.'; errEl.hidden = false; return }
+    const payload = {
+      name,
+      type: document.getElementById('companyType').value,
+      career_url: document.getElementById('companyCareerUrl').value.trim() || null,
+      active: document.getElementById('companyActive').checked ? 1 : 0,
+    }
+    const url = editingId ? `/api/companies/${editingId}` : '/api/companies'
+    const method = editingId ? 'PUT' : 'POST'
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN() },
+      body: JSON.stringify(payload),
+    })
+    if (res.ok) {
+      document.getElementById('companiesFormPanel').hidden = true
+      loadCompanies()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      errEl.textContent = d.error || 'Mentés sikertelen.'
+      errEl.hidden = false
+    }
+  })
+})()

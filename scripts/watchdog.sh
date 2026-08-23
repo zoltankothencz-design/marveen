@@ -77,7 +77,14 @@ else
       restart_channels
     fi
 
-  # 3. "Interrupted" allapot
+  # 3. "Resume from summary" modal (boot utan nagy context -- 'unknown' pane state,
+  #    schedule-runner busy-nak latja, pending_task_retries-be teszi a feladatokat)
+  elif echo "$PANE" | grep -q "Resume from summary\|Enter to confirm · Esc to cancel"; then
+    log "WATCHDOG: $SESSION resume-from-summary modal -- '1' + Enter kuldese"
+    tmux send-keys -t "$SESSION" "1" Enter
+    rm -f /tmp/marveen-channels-calc-start
+
+  # 4. "Interrupted" allapot
   elif echo "$PANE" | tail -10 | grep -q "Interrupted"; then
     log "WATCHDOG: $SESSION Interrupted allapot eszlelve -- Enter kuldese"
     tmux send-keys -t "$SESSION" "" Enter
@@ -93,7 +100,7 @@ else
       rm -f /tmp/marveen-watchdog-interrupted-last
     fi
 
-  # 4. "Calculating/Slithering/..." stuck elerzes
+  # 5. "Calculating/Slithering/..." stuck elerzes
   elif echo "$PANE" | grep -qE '(Calculating|Flummoxing|Churning|Wandering|Pondering|Thinking|Cogitating|Mulling|Churned|Slithering|Ruminating|Musing|Deliberating|Reflecting|Contemplating|Simmering|Percolating|Noodling|Meandering|Untangling|Unraveling)'; then
     CALC_FILE="/tmp/marveen-channels-calc-start"
     NOW=$(date +%s)
