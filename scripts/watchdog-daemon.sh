@@ -348,10 +348,18 @@ while true; do
         maybe_refresh_token
         _tr=$?
         if [ $_tr -eq 2 ]; then
-            # Token megújítva: marveen-channels restart kell hogy felvegye az új tokent
-            log "TOKEN-REFRESH: token megujult -- marveen-channels restart"
-            bash "$INSTALL_DIR/scripts/notify.sh" "🔄 MARVEEN: OAuth token megújítva, Marveen újraindul." &
+            # Token megújítva: marveen-channels + összes agent-* restart hogy felvegyék a friss tokent.
+            # Nélküle a marketing (és többi) agent a startup-kori 90 perces in-memory tokennel fut,
+            # ami lejáratakor (09:02+90min=10:32) "Not logged in" → session halált okoz.
+            log "TOKEN-REFRESH: token megujult -- marveen-channels + agent-* restart"
+            bash "$INSTALL_DIR/scripts/notify.sh" "🔄 MARVEEN: OAuth token megújítva, Marveen és az agent sessionök újraindulnak." &
             restart_channels
+            for _AGENT_SESSION in "${!AGENT_SCRIPTS[@]}"; do
+                _AGENT_SCRIPT="${AGENT_SCRIPTS[$_AGENT_SESSION]}"
+                log "TOKEN-REFRESH: $_AGENT_SESSION ujrainditas ($_AGENT_SCRIPT)"
+                bash "$INSTALL_DIR/scripts/$_AGENT_SCRIPT" >> "$LOG" 2>&1 &
+                echo "$_NOW" > "$INSTALL_DIR/store/watchdog-agent-cd-${_AGENT_SESSION}"
+            done
             sleep 30
             continue
         fi
