@@ -1,19 +1,25 @@
 #!/usr/bin/env node
 'use strict'
 
-// LinkedIn Jobs search via public /jobs/search/ page (no login required).
+// LinkedIn Jobs search via the public jobs-guest API (no login required).
+// Uses /jobs-guest/jobs/api/seeMoreJobPostings/search -- returns structured HTML job cards,
+// pageable with start=0,10,20... Rate limit kicks in after ~10 pages from a single IP,
+// so keep to max 2 pages (20 results) per keyword for daily scans.
 // Node 22 native fetch is used -- no node-fetch dependency needed.
 
 const KEYWORDS = [
-  'operations manager',
-  'casino manager',
-  'BI analyst',
-  'compliance manager',
-  'general manager',
+  'iGaming Operations Manager',
+  'Casino Manager',
+  'BI Analyst iGaming',
+  'Compliance Manager casino',
+  'General Manager iGaming',
 ]
 
 const LOCATION = 'Europe'
-const DELAY_MS = 1500 // polite delay between requests
+const PAGES_PER_KEYWORD = 2   // 2 pages = 20 results, safe daily rate-limit margin
+const DELAY_MS = 2000         // polite delay between requests
+const F_TPR = 'r604800'       // past 7 days (r86400=24h, r2592000=30d)
+const SORT_BY = 'DD'          // DD=most recent, R=relevance
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -64,30 +70,44 @@ function parseJobCards(html, keyword) {
   return jobs
 }
 
-async function searchKeyword(keyword) {
+async function fetchPage(keyword, start) {
   const params = new URLSearchParams({
     keywords: keyword,
     location: LOCATION,
+    start: String(start),
+    sortBy: SORT_BY,
+    f_TPR: F_TPR,
   })
-  const url = `https://www.linkedin.com/jobs/search/?${params}`
+  const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?${params}`
 
   let resp
   try {
     resp = await fetch(url, { headers: HEADERS })
   } catch (err) {
-    console.error(`[ERROR] fetch failed for "${keyword}": ${err.message}`)
-    return []
+    console.error(`[ERROR] fetch failed for "${keyword}" start=${start}: ${err.message}`)
+    return null
   }
 
   if (!resp.ok) {
-    console.error(`[ERROR] HTTP ${resp.status} for keyword "${keyword}"`)
-    return []
+    console.error(`[ERROR] HTTP ${resp.status} for "${keyword}" start=${start}`)
+    return null
   }
 
-  const html = await resp.text()
-  const jobs = parseJobCards(html, keyword)
-  console.error(`[INFO] "${keyword}": found ${jobs.length} jobs`)
-  return jobs
+  return resp.text()
+}
+
+async function searchKeyword(keyword) {
+  const allJobs = []
+  for (let page = 0; page < PAGES_PER_KEYWORD; page++) {
+    if (page > 0) await sleep(DELAY_MS)
+    const html = await fetchPage(keyword, page * 10)
+    if (!html) break
+    const jobs = parseJobCards(html, keyword)
+    allJobs.push(...jobs)
+    if (jobs.length < 10) break  // fewer than full page = no more results
+  }
+  console.error(`[INFO] "${keyword}": found ${allJobs.length} jobs (${PAGES_PER_KEYWORD} pages)`)
+  return allJobs
 }
 
 async function main() {
