@@ -1142,6 +1142,16 @@ export function appendTaskRun(name: string, agent: string): void {
   db.prepare('DELETE FROM task_runs WHERE ts < ?').run(now - TASK_RUN_TTL_MS)
 }
 
+export function hasTaskRunSince(name: string, sinceMs: number): boolean {
+  const row = db.prepare('SELECT 1 FROM task_runs WHERE name=? AND ts>=? LIMIT 1').get(name, sinceMs) as { 1: number } | undefined
+  return row !== undefined
+}
+
+export function hasPendingRetry(name: string): boolean {
+  const row = db.prepare('SELECT 1 FROM pending_task_retries WHERE task_name=? LIMIT 1').get(name) as { 1: number } | undefined
+  return row !== undefined
+}
+
 export function countTaskRunsBetween(fromTs: number, toTs?: number): number {
   if (toTs === undefined) {
     const row = db.prepare('SELECT COUNT(*) as c FROM task_runs WHERE ts >= ?').get(fromTs) as { c: number }

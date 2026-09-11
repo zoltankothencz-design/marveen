@@ -43,6 +43,13 @@ export interface ScheduledTask {
   // When set, the scheduler injects a /goal command before the prompt so
   // the agent keeps working until the specified condition is met.
   goal?: string
+  // When true, the scheduler fires this task on every dashboard/process
+  // boot if it has not yet run today (local calendar day, Europe/Budapest).
+  // Intended for tasks whose fixed cron time falls in the typical off-hours
+  // window (e.g. 02:07 or 07:30) and would always be missed on a machine
+  // that is off overnight and boots at 08:00-10:30.
+  // The cron field is kept as a fallback for nights when the machine stays on.
+  runOnBootIfMissedToday?: boolean
 }
 
 function readFileOr(path: string, fallback: string): string {
@@ -72,7 +79,7 @@ export function readScheduledTask(taskName: string): ScheduledTask | null {
   const skillContent = readFileOr(skillPath, '')
   const { name, description, body } = parseSkillMdFrontmatter(skillContent)
 
-  let config: { schedule?: string; agent?: string; enabled?: boolean; createdAt?: number; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string; goal?: string } = {}
+  let config: { schedule?: string; agent?: string; enabled?: boolean; createdAt?: number; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string; goal?: string; runOnBootIfMissedToday?: boolean } = {}
   try {
     config = JSON.parse(readFileOr(configPath, '{}'))
   } catch { /* use defaults */ }
@@ -90,6 +97,7 @@ export function readScheduledTask(taskName: string): ScheduledTask | null {
     forceSend: config.forceSend === true,
     targetSession: config.targetSession || undefined,
     goal: config.goal || undefined,
+    runOnBootIfMissedToday: config.runOnBootIfMissedToday === true,
   }
 }
 
@@ -108,7 +116,7 @@ export function listScheduledTasks(): ScheduledTask[] {
 
 export function writeScheduledTask(
   taskName: string,
-  data: { description?: string; prompt?: string; schedule?: string; agent?: string; enabled?: boolean; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string; goal?: string },
+  data: { description?: string; prompt?: string; schedule?: string; agent?: string; enabled?: boolean; type?: string; skipIfBusy?: boolean; forceSend?: boolean; targetSession?: string; goal?: string; runOnBootIfMissedToday?: boolean },
 ): void {
   const dir = join(SCHEDULED_TASKS_DIR, taskName)
   mkdirSync(dir, { recursive: true })
@@ -136,6 +144,7 @@ export function writeScheduledTask(
   if (data.forceSend !== undefined) config.forceSend = data.forceSend
   if (data.targetSession !== undefined) config.targetSession = data.targetSession
   if (data.goal !== undefined) config.goal = data.goal
+  if (data.runOnBootIfMissedToday !== undefined) config.runOnBootIfMissedToday = data.runOnBootIfMissedToday
   if (!config.createdAt) config.createdAt = Math.floor(Date.now() / 1000)
   atomicWriteFileSync(configPath, JSON.stringify(config, null, 2))
 }

@@ -9,6 +9,8 @@ import {
 } from '../config.js'
 import {
   appendTaskRun,
+  hasTaskRunSince,
+  hasPendingRetry,
   listPendingTaskRetries,
   deletePendingTaskRetry,
   updatePendingTaskRetry,
@@ -22,6 +24,7 @@ import {
   wrapOperatorTask,
 } from '../prompt-safety.js'
 import { cronMatchesNow } from './cron.js'
+import { CronExpressionParser } from 'cron-parser'
 import {
   listScheduledTasks,
   type ScheduledTask,
@@ -32,6 +35,7 @@ import {
   isAgentRunning,
   isSessionReadyForPrompt,
   sendPromptToSession,
+  sendPromptViaPasteBuffer,
   capturePane,
 } from './agent-process.js'
 import { MAIN_CHANNELS_SESSION } from './main-agent.js'
@@ -60,10 +64,37 @@ const SCHEDULER_COMPACT_THRESHOLD_K = 120
 
 const scheduleLastRun: Map<string, number> = new Map()
 
+// Tracks occurrence keys already scheduled for a stale check so we don't
+// double-schedule if the catchup window matches the same cron slot twice.
+const staleCheckScheduled = new Set<string>()
+
+// One-shot stale check fired 5 minutes after an occurrence becomes due.
+// Alerts Marveen if the task has no task_runs entry for that occurrence AND
+// is not already in the pending_task_retries queue (which has its own alerting).
+function checkStaleOccurrence(taskName: string, occurrenceMs: number, occurrenceKey: string): void {
+  staleCheckScheduled.delete(occurrenceKey)
+  try {
+    if (hasTaskRunSince(taskName, occurrenceMs)) return
+    if (hasPendingRetry(taskName)) return
+    const prevHHMM = new Date(occurrenceMs).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+    const msg = `WATCHDOG: '${taskName}' utemezett feladat nem indult el a vart idoponttol (${prevHHMM}) szamitott 5 percen belul, task_runs-ban nincs nyoma. Vizsgald ki.`
+    logger.warn({ task: taskName, occurrenceMs }, 'Stale scheduled task -- no task_run found after 5 min grace')
+    execFileSync('/bin/bash', [join(PROJECT_ROOT, 'scripts', 'notify.sh'), msg], { timeout: 10_000 })
+  } catch (err) {
+    logger.warn({ err, task: taskName }, 'checkStaleOccurrence error')
+  }
+}
+
 // Try to fire a task at a single target agent. Returns the outcome so the
 // caller can decide whether to queue a retry. Splitting this out means the
 // pendingTaskRetries loop and the normal cron loop share one code path.
-function attemptFireTask(task: ScheduledTask, agentName: string, now: number): 'fired' | 'busy' | 'missing' | 'error' {
+//
+// skipRecord: when true, does NOT call appendTaskRun. Used by the boot trigger
+// which does a deferred post-fire verification before recording the run.
+// usePasteBuffer: when true, uses sendPromptViaPasteBuffer instead of
+// sendPromptToSession. Intended for boot triggers with long prompts (6k+ chars)
+// where the chunked send-keys approach is less reliable.
+function attemptFireTask(task: ScheduledTask, agentName: string, now: number, skipRecord = false, usePasteBuffer = false): 'fired' | 'busy' | 'missing' | 'error' {
   const isMainAgent = agentName === MAIN_AGENT_ID
   // Allow per-task session override via targetSession config field.
   // Falls back to the standard agent session name derivation.
@@ -154,10 +185,14 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number): '
         }
       }
     }
-    sendPromptToSession(session, fullPrompt)
+    if (usePasteBuffer) {
+      sendPromptViaPasteBuffer(session, fullPrompt)
+    } else {
+      sendPromptToSession(session, fullPrompt)
+    }
     scheduleLastRun.set(task.name, now)
-    appendTaskRun(task.name, agentName)
-    logger.info({ task: task.name, agent: agentName, session }, 'Scheduled task fired')
+    if (!skipRecord) appendTaskRun(task.name, agentName)
+    logger.info({ task: task.name, agent: agentName, session, skipRecord }, 'Scheduled task fired')
 
     // Post-send verify: if the agent started a new turn during our chunk
     // stream, the Enter from sendPromptToSession might have landed while
@@ -244,6 +279,87 @@ export function startScheduleRunner(): NodeJS.Timeout {
     const now = Date.now()
     // On first run after restart, catch up missed tasks from last 30 min
     const catchUp = firstRun ? 30 * 60000 : 60000
+
+    // Boot trigger: tasks with runOnBootIfMissedToday fire once per calendar
+    // day on the first schedule-runner tick (= every machine/dashboard restart).
+    // Designed for tasks whose cron time falls in typical off-hours (e.g. 02:07,
+    // 07:30) so they always miss on a machine that boots at 08:00-10:30.
+    // The cron field stays as a fallback for nights when the machine stays on.
+    //
+    // Race-prevention: attemptFireTask writes scheduleLastRun + appendTaskRun,
+    // so the normal cron loop below skips the task even if cronMatchesNow fires.
+    // We also skip tasks already in pending_task_retries (their retry handler
+    // manages them) and tasks that already have a task_run for today.
+    if (firstRun) {
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const todayStartMs = todayStart.getTime()
+
+      const bootTasks = tasks.filter(t => t.enabled && t.runOnBootIfMissedToday)
+      for (const task of bootTasks) {
+        if (hasTaskRunSince(task.name, todayStartMs)) continue
+        if (hasPendingRetry(task.name)) continue
+        const agentName = task.agent === 'all' ? MAIN_AGENT_ID : (task.agent || MAIN_AGENT_ID)
+
+        // reggeli-napindito fires 3 min after dream-engine so DREAM.md has
+        // time to be generated (skill handles missing DREAM.md gracefully too).
+        const delayMs = task.name === 'reggeli-napindito' ? 3 * 60_000 : 0
+
+        const fire = () => {
+          if (hasTaskRunSince(task.name, todayStartMs)) return
+          if (hasPendingRetry(task.name)) return
+          const t = Date.now()
+          // Strip the `goal` field for boot fires: the /goal injection has a
+          // 4000-char limit and boot time is not the right moment for goal-mode.
+          // The task prompt itself drives the work; /goal is only for cron path.
+          const taskForBoot = { ...task, goal: undefined }
+          // skipRecord=true: we do NOT write appendTaskRun immediately.
+          // Instead we verify the session actually started processing (busy)
+          // 3s after prompt delivery. Writing task_runs speculatively causes
+          // false-green status that silences the stale watchdog even when
+          // the prompt was lost (e.g. session not ready at boot time).
+          //
+          // usePasteBuffer=true: long SKILL.md prompts (e.g. dream-engine ~6018
+          // chars) are delivered via tmux load-buffer + paste-buffer instead of
+          // chunked send-keys. Paste-buffer is more reliable for multi-kB prompts
+          // and matches the proven pattern used by napi-igaming-karrier-scan.
+          const result = attemptFireTask(taskForBoot, agentName, t, true, true)
+          if (result === 'busy' && !task.skipIfBusy) {
+            insertPendingTaskRetryIfNew(task.name, agentName, t, 'busy')
+          }
+          if (result === 'fired') {
+            // Deferred record: give Claude Code 3s to transition to busy state.
+            // If the session is busy, the prompt was received -- write task_runs.
+            // If still idle, the prompt was likely lost; skip the record so the
+            // stale watchdog can detect and alert the missed occurrence.
+            const session = task.targetSession
+              ? task.targetSession
+              : agentName === MAIN_AGENT_ID ? MAIN_CHANNELS_SESSION : agentSessionName(agentName)
+            setTimeout(() => {
+              try {
+                if (!isSessionReadyForPrompt(session)) {
+                  appendTaskRun(task.name, agentName)
+                  logger.info({ task: task.name, session }, 'Boot trigger: session busy after 3s -- task_runs written')
+                } else {
+                  logger.warn({ task: task.name, session }, 'Boot trigger: session still idle after 3s -- prompt may be lost, skipping task_runs write')
+                }
+              } catch (err) {
+                logger.warn({ err, task: task.name }, 'Boot trigger deferred task_runs check failed')
+              }
+            }, 3000)
+          }
+          logger.info({ task: task.name, agentName, result, delayMs }, 'Boot trigger fired')
+        }
+
+        if (delayMs === 0) {
+          fire()
+        } else {
+          setTimeout(fire, delayMs)
+        }
+        logger.info({ task: task.name, delayMs, todayStartMs }, 'Boot trigger: task not yet run today, scheduling fire')
+      }
+    }
+
     firstRun = false
 
     // Retry tasks that were busy-skipped on earlier ticks (persisted in
@@ -297,6 +413,27 @@ export function startScheduleRunner(): NodeJS.Timeout {
       // Prevent double-firing: skip if already ran within the catch-up window
       const lastRun = scheduleLastRun.get(task.name) || 0
       if (now - lastRun < catchUp) continue
+
+      // Schedule a one-shot stale check 5 min after the occurrence becomes due.
+      // If the task ran by then (task_runs entry exists) -- silent. If not and
+      // not in pending_task_retries (which has its own alerting) -- notify Marveen.
+      // delay = max(0, occurrenceTime + 5min - now): handles catchup restarts too.
+      //
+      // Skip for skipIfBusy=true tasks: a dropped tick there is intentional
+      // (the session was busy) and does NOT mean the task is broken. Alerting
+      // on a deliberate silent-drop is a false positive.
+      if (!task.skipIfBusy) {
+        try {
+          const occurrenceMs = CronExpressionParser.parse(task.schedule).prev().getTime()
+          const occurrenceKey = `${task.name}@${occurrenceMs}`
+          if (!staleCheckScheduled.has(occurrenceKey)) {
+            staleCheckScheduled.add(occurrenceKey)
+            const delay = Math.max(0, occurrenceMs + 5 * 60_000 - now)
+            setTimeout(() => checkStaleOccurrence(task.name, occurrenceMs, occurrenceKey), delay)
+            logger.info({ task: task.name, occurrenceMs, delayMs: delay }, 'Stale check scheduled')
+          }
+        } catch { /* invalid cron -- skip stale check for this task */ }
+      }
 
       let targetAgents: string[]
 

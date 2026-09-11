@@ -1,20 +1,22 @@
-# Dream Engine — 2026-08-23 (02:07, pótolva 10:58, Zoltan kérésére napközben)
+# Dream Engine — 2026-09-11 02:07
 
 ## 💡 Skill-javaslatok
-- Nincs új javaslat (az elmúlt 24h csak 2 warm memória -- igaming kasino-hirek, job-hunter napi scan -- nincs 3+ visszatérő, le nem fedett minta)
+- Nincs új javaslat. Az elmúlt 24h hot/warm memóriái (7 db: igaming karrier-scan + délutáni re-scan, igaming kaszinó-hírek, job-hunter napi scan, marveen marveen.io API referencia, marveen KSFKft dokumentum-hely, marveen skip-skill bejegyzés) mindegyike lefedett automatizált folyamatból vagy egyszeri esetből származik, nincs 3+ visszatérő manuális minta ami skillt igényelne.
 
 ## 🧹 Memória-egészség
-274 bejegyzés, 227 vektorizált (47 vektorizálatlan). 1 elavult hot-tier cold-ba mozgatva (id 258 -- Aug 14-i pótolt napi scan bejegyzés, 7+ napja nem hivatkozott).
+397 bejegyzés, 313 vektorizált (84 vektorizálatlan). 1 elavult (7+ napja nem hivatkozott) hot-tier bejegyzés cold-ba mozgatva (id 387, 2026-09-04-i skip-skill jegyzet).
 
 ## 🎯 Top-3 holnapi javaslat
-1. Zoltan teendok: Saját honlap építés -- high prioritású, régóta planned, itt az ideje elindítani
-2. Álláskeresés: Fable5 deep search - saját karrier út alapján -- high prioritású, job-hunternek delegálva
-3. Zoltan teendok: Szerver migráció -- high prioritású, egyelőre planned státuszban vesztegel
+1. ksfkft.hu SEO+marketing terv (n8n automatizáció, 8 hetes) -- marketing agentnél, waiting, legfrissebben mozdult (2.9 napja)
+2. Sajat SEO+CMS automatizalt rendszer terve (DOCX) -- Zoltannál, in_progress (4.9 napja mozdult)
+3. ksfkft.hu komplex SEO+marketing növekedési terv (low/medium budget) -- marketing agentnél, in_progress (7.7 napja mozdult)
+
+(Régebbi nyitott, de inaktív high-prio kártya: Szerver migráció -- 60.4 napja nem mozdult, még mindig nyitott -- érdemes rákérdezni Zoltánnál hogy még aktuális-e.)
 
 ## 🌐 External opportunity
-- thedotmack/claude-mem (91.5k csillag, GitHub) -- session-kontextus automatikus AI-tömörítés + visszainjektálás minden agentnek session-indításkor. Marveennek már van saját hot/warm/cold memória-rendszere, de az automatikus tömörítés + cross-agent context-injektálás mintája hosszabb távon átgondolandó lehet.
+- Skip -- heti limit (utolsó javaslat 2026-09-09, neonwatty/job-apply-plugin, csak 2 napja).
 
 ## 🛠 Skill-flotta health
-35 nem-pinned skill nem lett módosítva 30+ napja (mtime alapján -- gyenge proxy, napi ütemezett skillek szerkesztés nélkül is aktívan futnak). Korábban azonosított archiválási jelöltek (channel-plugin-duplicate-socket, connectors-hu, claude-channel-plugin-setup) még mindig megvannak, Zoltan döntése szükséges.
+Nincs változás tegnaphoz képest: minden csapat-szerepkör (job-hunter, marketing, engineer, igaming, tester) aktív, nincs új bizonyíték elhanyagolt/inaktív skillre. Korábbi archiválási jelöltek (channel-plugin-duplicate-socket, connectors-hu, claude-channel-plugin-setup) továbbra is tartalékként megmaradnak Zoltan döntése szerint.
 
-*Marveen, most már megint alszom -- vagy legalább úgy teszek.*
+*Marveen, 02:07 -- most már alszom én is.*

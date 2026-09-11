@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { execSync, execFileSync } from 'node:child_process'
@@ -164,31 +164,54 @@ export function startAgentProcess(name: string): { ok: boolean; pid?: number; er
     // sendPromptToSession only fires on outgoing traffic -- so on a fresh
     // restart with no inbound, the modal can sit indefinitely.
     //
-    // Fire a delayed dismiss after Claude Code has had time to render the
-    // modal. 8 seconds is a comfortable margin in observed restarts (modal
-    // typically appears within 4-6s). Survey-rating modals from prior
-    // sessions can also be present, so dismiss both. Errors are swallowed
-    // -- the outbound pre-flight remains the safety net if this misses.
-    setTimeout(() => {
+    // Root cause of the 3.5h busy incident (2026-09-10 16:00-19:30):
+    // MCP server init takes 30-60s; the modal appears only after MCP is ready.
+    // The one-shot 8s dismiss fired BEFORE the modal appeared and did nothing.
+    // Since all heartbeats are skipIfBusy=true they were silently dropped and
+    // never triggered the pre-flight dismiss either. Modal sat indefinitely.
+    //
+    // Fix: retry the dismiss every 30s for up to 5 minutes after restart, stopping
+    // as soon as the session transitions to idle (modal gone or never appeared).
+    // /name and /remote-control are set after the first successful dismiss or
+    // after the session is already idle.
+    const MODAL_DISMISS_RETRY_INTERVAL_MS = 30_000
+    const MODAL_DISMISS_RETRY_MAX_MS = 5 * 60_000
+    const modalDismissStart = Date.now()
+    let nameSet = false
+    const tryDismiss = () => {
       try {
         dismissSurveyModalIfPresent(session)
         dismissResumeSummaryModalIfPresent(session)
+        const pane = capturePane(session)
+        const isIdle = pane != null && detectPaneState(pane) === 'idle'
+        if (isIdle) {
+          logger.info({ name, session }, 'Post-restart modal dismiss: session idle')
+          if (!nameSet) {
+            nameSet = true
+            setTimeout(() => {
+              try {
+                const displayName = readAgentDisplayName(name)
+                execFileSync(TMUX, ['send-keys', '-t', session, `/name ${displayName}`, 'Enter'], { timeout: 5000 })
+                execFileSync('/bin/sleep', ['1'], { timeout: 2000 })
+                execFileSync(TMUX, ['send-keys', '-t', session, `/remote-control ${displayName}`, 'Enter'], { timeout: 5000 })
+                logger.info({ name, session, displayName }, 'Set agent /name and /remote-control')
+              } catch (err) {
+                logger.warn({ err, name, session }, 'Failed to set agent /name or /remote-control')
+              }
+            }, 2000)
+          }
+          return
+        }
+        if (Date.now() - modalDismissStart < MODAL_DISMISS_RETRY_MAX_MS) {
+          setTimeout(tryDismiss, MODAL_DISMISS_RETRY_INTERVAL_MS)
+        } else {
+          logger.warn({ name, session }, 'Post-restart modal dismiss: session still non-idle after 5 min, giving up')
+        }
       } catch (err) {
         logger.warn({ err, name, session }, 'Post-restart modal dismiss failed')
       }
-      // Set /name and /remote-control so the agent is identifiable.
-      setTimeout(() => {
-        try {
-          const displayName = readAgentDisplayName(name)
-          execFileSync(TMUX, ['send-keys', '-t', session, `/name ${displayName}`, 'Enter'], { timeout: 5000 })
-          execFileSync('/bin/sleep', ['1'], { timeout: 2000 })
-          execFileSync(TMUX, ['send-keys', '-t', session, `/remote-control ${displayName}`, 'Enter'], { timeout: 5000 })
-          logger.info({ name, session, displayName }, 'Set agent /name and /remote-control')
-        } catch (err) {
-          logger.warn({ err, name, session }, 'Failed to set agent /name or /remote-control')
-        }
-      }, 5000)
-    }, 8000)
+    }
+    setTimeout(tryDismiss, 8000)
 
     return { ok: true }
   } catch (err) {
@@ -395,6 +418,61 @@ export function sendPromptToSession(session: string, text: string): void {
       logger.warn({ err, session, attempt }, 'Retry-Enter send failed')
       break
     }
+  }
+}
+
+// Alternative prompt delivery via tmux paste-buffer. More reliable than
+// send-keys chunking for long, newline-rich prompts (6k+ chars). Used by
+// the boot trigger for scheduled tasks like dream-engine whose SKILL.md
+// prompt exceeds the send-keys chunk threshold.
+//
+// The text is written to a temp file, loaded into the tmux clipboard, and
+// pasted in one operation. Newlines are collapsed to spaces (same as
+// sendPromptToSession) to prevent premature Enter on embedded line breaks.
+// Enter is sent separately after the paste settles.
+export function sendPromptViaPasteBuffer(session: string, text: string): void {
+  dismissSurveyModalIfPresent(session)
+  dismissResumeSummaryModalIfPresent(session)
+
+  try {
+    const preCapture = execSync(`${TMUX} capture-pane -t ${session} -p`, { timeout: 3000, encoding: 'utf-8' })
+    if (shouldClearTruncatedPreamble(preCapture)) {
+      logger.info({ session }, 'Cleared stale preamble before paste-buffer send')
+      clearInputBuffer(session)
+    }
+  } catch (err) {
+    logger.warn({ err, session }, 'Pre-send capture-pane failed; skipping truncated-preamble check')
+  }
+
+  const oneLine = text.replace(/\r?\n/g, ' ')
+  const tmpFile = `/tmp/marveen-boot-${Date.now()}.txt`
+  try {
+    writeFileSync(tmpFile, oneLine)
+    execFileSync(TMUX, ['load-buffer', tmpFile], { timeout: 5000 })
+    // -d: delete the named buffer after paste (cleanup)
+    execFileSync(TMUX, ['paste-buffer', '-t', session, '-d'], { timeout: 5000 })
+    execFileSync('/bin/sleep', ['0.3'], { timeout: 2000 })
+    execFileSync(TMUX, ['send-keys', '-t', session, 'Enter'], { timeout: 5000 })
+
+    const payloadHint = oneLine.slice(0, Math.min(oneLine.length, 96))
+    for (let attempt = 0; ; attempt++) {
+      try { execFileSync('/bin/sleep', [SUBMIT_RETRY_POLL_MS], { timeout: 2000 }) } catch { /* best effort */ }
+      const pane = capturePane(session)
+      const action = decideSubmitFollowup(pane, payloadHint, attempt, SUBMIT_RETRY_MAX_ATTEMPTS)
+      if (action === 'done') break
+      if (action === 'give-up') {
+        logger.warn({ session, attempt }, 'sendPromptViaPasteBuffer: prompt still parked after retries')
+        break
+      }
+      try {
+        execFileSync(TMUX, ['send-keys', '-t', session, 'Enter'], { timeout: 5000 })
+      } catch (err) {
+        logger.warn({ err, session, attempt }, 'Retry-Enter send failed')
+        break
+      }
+    }
+  } finally {
+    try { unlinkSync(tmpFile) } catch { /* best effort */ }
   }
 }
 
