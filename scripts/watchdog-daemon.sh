@@ -125,6 +125,34 @@ check_agent_sessions() {
 
 
 
+OLLAMA_RESTART_COOLDOWN_FILE="$INSTALL_DIR/store/watchdog-ollama-cd"
+OLLAMA_RESTART_COOLDOWN=300  # 5 perc cooldown ollama restart kozott
+
+check_ollama() {
+    # Ollama embedding server (port 11434) ellenorzese es ujrainditas ha nem valaszol
+    local running=0
+    pgrep -x ollama > /dev/null 2>&1 && running=1
+
+    local api_ok=0
+    if [ "$running" -eq 1 ]; then
+        curl -sf --max-time 5 localhost:11434/api/tags > /dev/null 2>&1 && api_ok=1
+    fi
+
+    [ "$running" -eq 1 ] && [ "$api_ok" -eq 1 ] && return
+
+    local NOW LAST
+    NOW=$(date +%s)
+    LAST=0
+    [ -f "$OLLAMA_RESTART_COOLDOWN_FILE" ] && LAST=$(cat "$OLLAMA_RESTART_COOLDOWN_FILE")
+    [ $((NOW - LAST)) -lt "$OLLAMA_RESTART_COOLDOWN" ] && return
+
+    log "OLLAMA: nem valaszol (process=${running}, api=${api_ok}) -- ujrainditas"
+    pkill -x ollama 2>/dev/null; sleep 2
+    ollama serve >> "$LOG" 2>&1 &
+    echo "$NOW" > "$OLLAMA_RESTART_COOLDOWN_FILE"
+    bash "$INSTALL_DIR/scripts/notify.sh" "WATCHDOG: Ollama embedding szerver ujraindult (nem valaszolt)." &
+}
+
 COMPACT_THRESHOLD_K=170
 COMPACT_COOLDOWN=600  # 10 perc cooldown /compact kozott
 
@@ -370,6 +398,9 @@ while true; do
 
     # 0b. Agent session watchdog
     check_agent_sessions
+
+    # 0b2. Ollama embedding server watchdog
+    check_ollama
 
     # Napi boot compact -- orankenei ujraprobalkozas ha nem volt idle
     if ! { [ -f "$BOOT_COMPACT_FILE" ] && [ "$(cat "$BOOT_COMPACT_FILE" 2>/dev/null)" = "$(date +%Y-%m-%d)" ]; }; then

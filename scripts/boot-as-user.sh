@@ -48,6 +48,14 @@ else
     echo "$(date -Iseconds) [user] marketing mar fut" >> "$LOG"
 fi
 
+# Ollama embedding server (nomic-embed-text, port 11434)
+if ! pgrep -x ollama > /dev/null 2>&1; then
+    ollama serve >> "$LOG" 2>&1 &
+    echo "$(date -Iseconds) [user] ollama serve elindult" >> "$LOG"
+else
+    echo "$(date -Iseconds) [user] ollama mar fut" >> "$LOG"
+fi
+
 # Watchdog daemon (Telegram stability)
 if ! tmux has-session -t marveen-watchdog 2>/dev/null; then
     bash "$INSTALL_DIR/scripts/start-watchdog-daemon.sh" >> "$LOG" 2>&1
