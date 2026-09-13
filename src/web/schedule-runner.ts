@@ -94,13 +94,26 @@ function checkStaleOccurrence(taskName: string, occurrenceMs: number, occurrence
 // usePasteBuffer: when true, uses sendPromptViaPasteBuffer instead of
 // sendPromptToSession. Intended for boot triggers with long prompts (6k+ chars)
 // where the chunked send-keys approach is less reliable.
-function attemptFireTask(task: ScheduledTask, agentName: string, now: number, skipRecord = false, usePasteBuffer = false): 'fired' | 'busy' | 'missing' | 'error' {
+function attemptFireTask(task: ScheduledTask, agentName: string, now: number, skipRecord = false, usePasteBuffer = false, firedSessionsThisTick?: Set<string>): 'fired' | 'busy' | 'missing' | 'error' {
   const isMainAgent = agentName === MAIN_AGENT_ID
   // Allow per-task session override via targetSession config field.
   // Falls back to the standard agent session name derivation.
   const session = task.targetSession
     ? task.targetSession
     : isMainAgent ? MAIN_CHANNELS_SESSION : agentSessionName(agentName)
+
+  // Per-session serialisation within a single runCheck() tick. When multiple
+  // pending retries flush at once (e.g. session restarts after a long busy
+  // stretch), each task fires synchronously but the pane-state transition
+  // from "idle" to "busy" lags the actual send-keys by ~100-300ms. Without
+  // this guard every task sees isSessionReadyForPrompt=true and delivers in
+  // quick succession, causing prompt interleaving or / rename contamination.
+  // One delivery per session per tick is sufficient -- the rest stay in the
+  // retry queue and get a fresh attempt on the next 60s tick.
+  if (firedSessionsThisTick?.has(session)) {
+    logger.info({ task: task.name, session }, 'Session already received a delivery this tick, deferring to next tick')
+    return 'busy'
+  }
 
   let sessionExists = false
   try {
@@ -192,6 +205,7 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number, sk
     }
     scheduleLastRun.set(task.name, now)
     if (!skipRecord) appendTaskRun(task.name, agentName)
+    firedSessionsThisTick?.add(session)
     logger.info({ task: task.name, agent: agentName, session, skipRecord }, 'Scheduled task fired')
 
     // Post-send verify: if the agent started a new turn during our chunk
@@ -368,6 +382,10 @@ export function startScheduleRunner(): NodeJS.Timeout {
     // check skipped because the session was busy at 12:00:50 would never
     // run that day. We NEVER abandon -- the operator can cancel from the
     // UI if a retry has become obsolete.
+    // One delivery per session per tick. Prevents prompt interleaving when
+    // multiple pending retries flush simultaneously after a session restart.
+    const firedSessionsThisTick = new Set<string>()
+
     const pendingRows = listPendingTaskRetries()
     const pendingKeys = new Set<string>()
     for (const row of pendingRows) {
@@ -392,7 +410,7 @@ export function startScheduleRunner(): NodeJS.Timeout {
       pendingKeys.add(key)
 
       const view = toPendingRetryView(row, now)
-      const result = attemptFireTask(taskDef, row.agent_name, now)
+      const result = attemptFireTask(taskDef, row.agent_name, now, false, false, firedSessionsThisTick)
       if (result === 'fired' || result === 'missing') {
         deletePendingTaskRetry(row.task_name, row.agent_name)
         continue
@@ -450,7 +468,7 @@ export function startScheduleRunner(): NodeJS.Timeout {
         // If already queued for retry from an earlier tick, leave it to
         // the retry handler -- don't re-queue or double-fire.
         if (pendingKeys.has(key)) continue
-        const result = attemptFireTask(task, agentName, now)
+        const result = attemptFireTask(task, agentName, now, false, false, firedSessionsThisTick)
         if (result === 'busy') {
           if (task.skipIfBusy) {
             // Opt-in skip for short-cadence tasks (e.g. 30-min heartbeats):
