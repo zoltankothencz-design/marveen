@@ -338,7 +338,10 @@ export function startScheduleRunner(): NodeJS.Timeout {
           // chunked send-keys. Paste-buffer is more reliable for multi-kB prompts
           // and matches the proven pattern used by napi-igaming-karrier-scan.
           const result = attemptFireTask(taskForBoot, agentName, t, true, true)
-          if (result === 'busy' && !task.skipIfBusy) {
+          // 'missing': session not yet running at boot time (timing race -- channels
+          // starts a few seconds after the dashboard). Treat the same as 'busy' so
+          // the pending retry loop picks it up once the session is ready.
+          if ((result === 'busy' || result === 'missing') && !task.skipIfBusy) {
             insertPendingTaskRetryIfNew(task.name, agentName, t, 'busy')
           }
           if (result === 'fired') {
@@ -411,10 +414,14 @@ export function startScheduleRunner(): NodeJS.Timeout {
 
       const view = toPendingRetryView(row, now)
       const result = attemptFireTask(taskDef, row.agent_name, now, false, false, firedSessionsThisTick)
-      if (result === 'fired' || result === 'missing') {
+      if (result === 'fired') {
         deletePendingTaskRetry(row.task_name, row.agent_name)
         continue
       }
+      // 'missing': session not yet running -- treat same as 'busy', keep the
+      // retry so the next 60s tick can try again once the session is up.
+      // (Was incorrectly treated as success here, causing boot-trigger retries
+      // queued in the same tick to be immediately deleted before any retry fired.)
       // Still busy or errored: refresh the retry row and alert ONCE if
       // the age crossed the threshold. `updatePendingTaskRetry` returns
       // false when the row has been cancelled between load and now --
