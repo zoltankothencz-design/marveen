@@ -289,6 +289,12 @@ export function startScheduleRunner(): NodeJS.Timeout {
   let firstRun = true
 
   function runCheck() {
+    // Wrap the entire tick in try-catch: a transient SQLite lock, an OS error,
+    // or any other unexpected exception must not propagate as an uncaughtException
+    // and trigger shutdown(). A skipped tick is recoverable; a dashboard restart
+    // is not (the watchdog has a 5-min cooldown, causing long gaps -- see the
+    // 2026-09-09 incident where all schedules were silent for 7+ hours).
+    try {
     const tasks = listScheduledTasks()
     const now = Date.now()
     // On first run after restart, catch up missed tasks from last 30 min
@@ -494,6 +500,11 @@ export function startScheduleRunner(): NodeJS.Timeout {
           insertPendingTaskRetryIfNew(task.name, agentName, now, 'busy')
         }
       }
+    }
+    } catch (err) {
+      // Swallow the error so the setInterval keeps ticking. Log at error level
+      // so it shows up in dashboard.log for post-mortem analysis.
+      logger.error({ err }, 'schedule-runner runCheck uncaught error -- skipping tick')
     }
   }
 
