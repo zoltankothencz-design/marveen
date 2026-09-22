@@ -86,6 +86,14 @@ else
     echo "$(date -Iseconds) [sessions] igaming mar fut" >> "$LOG"
 fi
 
+# SeoSales agent (SEO/AEO + Sales outreach)
+if ! tmux has-session -t agent-sesa 2>/dev/null; then
+    bash "$INSTALL_DIR/scripts/start-sesa.sh" >> "$LOG" 2>&1 &
+    echo "$(date -Iseconds) [sessions] sesa elindult" >> "$LOG"
+else
+    echo "$(date -Iseconds) [sessions] sesa mar fut" >> "$LOG"
+fi
+
 # Watchdog daemon
 if ! tmux has-session -t marveen-watchdog 2>/dev/null; then
     bash "$INSTALL_DIR/scripts/start-watchdog-daemon.sh" >> "$LOG" 2>&1

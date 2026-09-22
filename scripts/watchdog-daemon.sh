@@ -96,6 +96,7 @@ AGENT_SCRIPTS["agent-marketing"]="start-marketing.sh"
 AGENT_SCRIPTS["agent-engineer"]="start-optimus.sh"
 AGENT_SCRIPTS["agent-igaming"]="start-igaming.sh"
 AGENT_SCRIPTS["agent-tester"]="start-tester.sh"
+AGENT_SCRIPTS["agent-sesa"]="start-sesa.sh"
 
 check_agent_sessions() {
     for SESSION_NAME in "${!AGENT_SCRIPTS[@]}"; do
