@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync, execFileSync } from 'node:child_process'
 import { PROJECT_ROOT, WEB_HOST } from './config.js'
-import { loadOrCreateDashboardToken, checkBearerToken } from './web/dashboard-auth.js'
+import { loadOrCreateDashboardToken, checkRequestAuth, isValidToken, buildAuthCookie } from './web/dashboard-auth.js'
 import { json } from './web/http-helpers.js'
 import { AGENTS_BASE_DIR, listAgentNames } from './web/agent-config.js'
 import { ensureAgentHooks, ensureDefaultScheduledTasks } from './web/agent-scaffold.js'
@@ -74,6 +74,12 @@ export function startWebServer(port = 3420): http.Server {
     }
     if (method === 'OPTIONS') { res.writeHead(204); res.end(); return }
 
+    // Bootstrap URL (?token=...): persist the token as an HttpOnly cookie so
+    // the browser stays logged in even if Safari evicts localStorage.
+    if (method === 'GET' && !path.startsWith('/api/') && isValidToken(url.searchParams.get('token'), DASHBOARD_TOKEN)) {
+      res.setHeader('Set-Cookie', buildAuthCookie(DASHBOARD_TOKEN))
+    }
+
     // Block state-changing requests from browsers running on foreign origins.
     // Same-origin fetches from the dashboard don't set Origin on some browsers, so we
     // accept requests where Origin is absent OR whitelisted. Requests carrying a foreign
@@ -99,11 +105,11 @@ export function startWebServer(port = 3420): http.Server {
       return json(res, { ok: true, uptime: Math.floor(process.uptime()), ts: Date.now() })
     }
     if (path === '/api/auth/status' && method === 'GET') {
-      const ok = checkBearerToken(req.headers.authorization, DASHBOARD_TOKEN)
+      const ok = checkRequestAuth(req.headers, DASHBOARD_TOKEN)
       return json(res, { authenticated: ok })
     }
     if (path.startsWith('/api/') && !isPublicApi) {
-      if (!checkBearerToken(req.headers.authorization, DASHBOARD_TOKEN)) {
+      if (!checkRequestAuth(req.headers, DASHBOARD_TOKEN)) {
         res.writeHead(401, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'Unauthorized' }))
         return

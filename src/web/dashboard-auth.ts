@@ -26,12 +26,56 @@ export function loadOrCreateDashboardToken(): string {
   return fresh
 }
 
+function tokenEquals(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
+}
+
 export function checkBearerToken(header: string | undefined, expected: string): boolean {
   if (!header) return false
   const m = /^Bearer\s+(.+)$/.exec(header)
   if (!m) return false
-  const provided = Buffer.from(m[1].trim())
-  const wanted = Buffer.from(expected)
-  if (provided.length !== wanted.length) return false
-  return timingSafeEqual(provided, wanted)
+  return tokenEquals(m[1].trim(), expected)
+}
+
+// Session cookie fallback. The UI keeps the token in localStorage, but Safari
+// (incl. home-screen shortcuts) wipes script-writable storage after ~7 days
+// without a visit. A server-set HttpOnly cookie is not subject to that cap, so
+// once the user opens the bootstrap URL (?token=...) the browser stays
+// authenticated. SameSite=Strict + the Origin check in web.ts keep CSRF out.
+export const DASHBOARD_COOKIE_NAME = 'marveen_dash'
+const DASHBOARD_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
+
+export function readCookie(header: string | undefined, name: string): string | undefined {
+  if (!header) return undefined
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq === -1) continue
+    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim())
+  }
+  return undefined
+}
+
+export function checkCookieToken(header: string | undefined, expected: string): boolean {
+  const value = readCookie(header, DASHBOARD_COOKIE_NAME)
+  return !!value && tokenEquals(value, expected)
+}
+
+export function checkRequestAuth(
+  headers: { authorization?: string; cookie?: string },
+  expected: string,
+): boolean {
+  return checkBearerToken(headers.authorization, expected) || checkCookieToken(headers.cookie, expected)
+}
+
+// Returns true when `candidate` is the valid token (used to validate ?token=
+// before persisting it as a cookie).
+export function isValidToken(candidate: string | null, expected: string): boolean {
+  return !!candidate && tokenEquals(candidate.trim(), expected)
+}
+
+export function buildAuthCookie(token: string): string {
+  return `${DASHBOARD_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${DASHBOARD_COOKIE_MAX_AGE}; Path=/; HttpOnly; SameSite=Strict`
 }
