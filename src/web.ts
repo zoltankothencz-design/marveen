@@ -78,7 +78,11 @@ export function startWebServer(port = 3420): http.Server {
 
     // Bootstrap URL (?token=...): persist the token as an HttpOnly cookie so
     // the browser stays logged in even if Safari evicts localStorage.
-    if (method === 'GET' && !path.startsWith('/api/') && isValidToken(url.searchParams.get('token'), DASHBOARD_TOKEN)) {
+    if (method === 'GET' && !path.startsWith('/api/') && url.searchParams.has('token')) {
+    const ok = isValidToken(url.searchParams.get('token'), DASHBOARD_TOKEN)
+    logger.info({ ip: req.socket.remoteAddress, path, valid: ok, len: url.searchParams.get('token')?.trim().length }, 'Dashboard bootstrap token')
+  }
+  if (method === 'GET' && !path.startsWith('/api/') && isValidToken(url.searchParams.get('token'), DASHBOARD_TOKEN)) {
       res.setHeader('Set-Cookie', buildAuthCookie(DASHBOARD_TOKEN))
     }
 
@@ -112,6 +116,10 @@ export function startWebServer(port = 3420): http.Server {
     }
     if (path.startsWith('/api/') && !isPublicApi) {
       if (!checkRequestAuth(req.headers, DASHBOARD_TOKEN)) {
+        // Log only presence/shape of credentials, never their values.
+        const auth = req.headers.authorization
+        const bearerLen = auth?.startsWith('Bearer ') ? auth.slice(7).trim().length : 0
+        logger.warn({ ip: req.socket.remoteAddress, path, hasBearer: !!auth, bearerLen, hasCookie: /(?:^|;\s*)marveen_dash=/.test(req.headers.cookie ?? '') }, 'Dashboard API 401')
         res.writeHead(401, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'Unauthorized' }))
         return

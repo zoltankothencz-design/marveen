@@ -44,7 +44,9 @@ export function checkBearerToken(header: string | undefined, expected: string): 
 // (incl. home-screen shortcuts) wipes script-writable storage after ~7 days
 // without a visit. A server-set HttpOnly cookie is not subject to that cap, so
 // once the user opens the bootstrap URL (?token=...) the browser stays
-// authenticated. SameSite=Strict + the Origin check in web.ts keep CSRF out.
+// authenticated. SameSite=Lax (not Strict: WebKit withholds Strict cookies
+// from fetches on a page reached via cross-site navigation, e.g. a link tapped
+// in Telegram) + the Origin check in web.ts keep CSRF out.
 export const DASHBOARD_COOKIE_NAME = 'marveen_dash'
 const DASHBOARD_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 
@@ -77,5 +79,5 @@ export function isValidToken(candidate: string | null, expected: string): boolea
 }
 
 export function buildAuthCookie(token: string): string {
-  return `${DASHBOARD_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${DASHBOARD_COOKIE_MAX_AGE}; Path=/; HttpOnly; SameSite=Strict`
+  return `${DASHBOARD_COOKIE_NAME}=${encodeURIComponent(token)}; Max-Age=${DASHBOARD_COOKIE_MAX_AGE}; Path=/; HttpOnly; SameSite=Lax`
 }

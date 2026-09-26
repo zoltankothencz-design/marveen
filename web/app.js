@@ -7,8 +7,16 @@
   const TOKEN_KEY = 'marveen-dashboard-token'
   const urlParams = new URLSearchParams(window.location.search)
   const urlToken = urlParams.get('token')
+  // localStorage can throw or be unavailable (in-app browsers, ITP); the
+  // server-set HttpOnly cookie is the durable credential, so never let
+  // storage errors break the bootstrap.
+  const store = {
+    get: () => { try { return localStorage.getItem(TOKEN_KEY) } catch { return null } },
+    set: (v) => { try { localStorage.setItem(TOKEN_KEY, v) } catch { /* ignore */ } },
+    del: () => { try { localStorage.removeItem(TOKEN_KEY) } catch { /* ignore */ } },
+  }
   if (urlToken) {
-    localStorage.setItem(TOKEN_KEY, urlToken)
+    store.set(urlToken)
     urlParams.delete('token')
     const clean = window.location.pathname + (urlParams.toString() ? '?' + urlParams : '') + window.location.hash
     window.history.replaceState({}, '', clean)
@@ -23,7 +31,7 @@
       url.startsWith('/api/') ||
       (url.startsWith(window.location.origin + '/api/'))
     if (isSameOriginApi) {
-      const token = localStorage.getItem(TOKEN_KEY)
+      const token = store.get()
       if (token) {
         init = init || {}
         const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined))
@@ -34,7 +42,7 @@
     const res = await originalFetch(input, init)
     if (res.status === 401 && isSameOriginApi) {
       // Token missing, wrong, or revoked. Wipe and prompt once per page load.
-      localStorage.removeItem(TOKEN_KEY)
+      store.del()
       if (!window.__marveenAuthPrompted) {
         window.__marveenAuthPrompted = true
         alert(
