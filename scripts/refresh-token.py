@@ -9,12 +9,17 @@ Exit kódok:
   1 -- hiba (refresh sikertelen, Telegram alert szükséges)
   2 -- token sikeresen megújítva (marveen-channels restart szükséges)
 """
-import json, sys, time, urllib.request, urllib.error, os, shutil
+import json, sys, time, urllib.request, urllib.error, os, shutil, subprocess
 
 CREDS_FILE  = os.path.expanduser("~/.claude/.credentials.json")
 TOKEN_ENDPOINT = "https://platform.claude.com/v1/oauth/token"
 CLIENT_ID   = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 REFRESH_MARGIN_S = 1800  # 30 perc
+# A refresh tokennek kemeny lejarata van (refreshTokenExpiresAt). Utana csak kezi /login segit,
+# es a Claude Code az invalid_grant-nal kiuresiti a credentials fajlt. Ezert elore szolunk.
+RT_WARN_S = 3 * 86400
+RT_WARN_STAMP = os.path.expanduser("~/marveen/store/refresh-token-expiry-warned")
+NOTIFY_SH = os.path.expanduser("~/marveen/scripts/notify.sh")
 
 
 def log(msg):
@@ -34,6 +39,28 @@ def save_creds(data):
     shutil.move(tmp, CREDS_FILE)
 
 
+def warn_refresh_token_expiry(oauth: dict):
+    rt_exp_ms = oauth.get("refreshTokenExpiresAt")
+    if not isinstance(rt_exp_ms, (int, float)) or not oauth.get("refreshToken"):
+        return
+    left = rt_exp_ms / 1000 - time.time()
+    if left <= 0 or left > RT_WARN_S:
+        return
+    today = time.strftime("%Y-%m-%d")
+    try:
+        if open(RT_WARN_STAMP).read().strip() == today:
+            return
+    except OSError:
+        pass
+    when = time.strftime("%m-%d %H:%M", time.localtime(rt_exp_ms / 1000))
+    log(f"FIGYELEM: refresh token lejar {when}-kor ({left/3600:.0f} ora mulva) -- kezi /login kell elotte")
+    subprocess.Popen(["bash", NOTIFY_SH,
+        f"⏰ MARVEEN: a Claude Code refresh token {when}-kor vegleg lejar. "
+        f"Addig csinalj egy kezi /login-t a WSL-ben, kulonben minden ugynok kiesik."])
+    with open(RT_WARN_STAMP, "w") as f:
+        f.write(today)
+
+
 def needs_refresh(oauth: dict) -> bool:
     expires_at_ms = oauth.get("expiresAt", 0)
     expires_at_s = expires_at_ms / 1000
@@ -48,7 +75,7 @@ def needs_refresh(oauth: dict) -> bool:
 def refresh(oauth: dict) -> dict:
     refresh_token = oauth.get("refreshToken")
     if not refresh_token:
-        raise ValueError("Nincs refreshToken a credentials fájlban")
+        raise ValueError("Nincs refreshToken a credentials fájlban (a Claude Code invalid_grant miatt kiuritette) -- kezi /login kell")
 
     payload = json.dumps({
         "grant_type": "refresh_token",
@@ -77,6 +104,7 @@ def main():
         sys.exit(1)
 
     oauth = creds.get("claudeAiOauth", {})
+    warn_refresh_token_expiry(oauth)
     if not needs_refresh(oauth):
         sys.exit(0)
 
@@ -106,6 +134,8 @@ def main():
         oauth["refreshToken"] = result["refresh_token"]
     if "expires_in" in result:
         oauth["expiresAt"] = int((time.time() + result["expires_in"]) * 1000)
+    if result.get("refresh_token_expires_in"):
+        oauth["refreshTokenExpiresAt"] = int((time.time() + int(result["refresh_token_expires_in"])) * 1000)
 
     creds["claudeAiOauth"] = oauth
     save_creds(creds)

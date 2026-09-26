@@ -139,6 +139,21 @@ sleep 1
 $TMUX_BIN send-keys -t "$SESSION" "/remote-control ${_bot_name}" Enter
 unset _bot_name
 
+# 2026-09-23 (claude-code 2.1.280): ha a Remote Control mar aktiv, a /remote-control
+# egy kezelo ablakot nyit ("Disconnect this session / Show QR code / Continue",
+# "Esc to continue"), ami orokre ott all, es elnyeli a tg-bridge altal injektalt
+# uzeneteket. Esc = Continue, a kapcsolat megmarad, az ablak bezarul.
+for i in 1 2 3 4 5 6 7 8; do
+  sleep 1
+  pane=$($TMUX_BIN capture-pane -t "$SESSION" -p 2>/dev/null || true)
+  case "$pane" in
+    *"Disconnect this session"*"Esc to continue"*)
+      $TMUX_BIN send-keys -t "$SESSION" Escape
+      break
+      ;;
+  esac
+done
+
 # Bot menu setup (Telegram only; Slack uses App Manifest)
 if [ "$CHANNEL_PROVIDER" = "telegram" ]; then
   "$INSTALL_DIR/scripts/set-bot-menu.sh" &

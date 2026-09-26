@@ -57,6 +57,8 @@ export function startWebServer(port = 3420): http.Server {
     `http://localhost:${port}`,
     `http://127.0.0.1:${port}`,
     ...( WEB_HOST !== 'localhost' && WEB_HOST !== '127.0.0.1' ? [`http://${WEB_HOST}:${port}`] : []),
+    // VPS: tovabbi engedelyezett origin(ek) vesszovel, pl. a Tailscale-cim (http://100.x.y.z:3420)
+    ...(process.env.DASHBOARD_EXTRA_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
   ])
   const isSafeMethod = (m: string) => m === 'GET' || m === 'HEAD' || m === 'OPTIONS'
 
