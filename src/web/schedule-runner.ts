@@ -176,7 +176,13 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number, sk
         if (isSessionReadyForPrompt(session)) { goalSettled = true; break }
         execFileSync('/bin/sleep', ['0.5'], { timeout: 2000 })
       }
-      if (!goalSettled) logger.warn({ task: task.name, session }, '/goal did not settle within 10s, proceeding anyway')
+      if (!goalSettled) {
+        // Do not send the prompt into a still-busy session: the Enter would land
+        // while Claude Code is processing the /goal turn and the chunks would sit
+        // in the input buffer with no one to submit them. Defer to pending retry.
+        logger.warn({ task: task.name, session }, '/goal did not settle within 10s -- deferring to pending retry')
+        return 'busy'
+      }
     }
     // Token-check: ha a session >SCHEDULER_COMPACT_THRESHOLD_K tokennél jár,
     // /compact-ot küldünk előtte hogy a feladat friss contexten fusson.
@@ -217,17 +223,44 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number, sk
     const marker = task.type === 'heartbeat'
       ? `[Heartbeat: ${task.name}]`
       : `[Utemezett feladat: ${task.name}]`
+    // How long to wait between resubmit polls. 6s gives the Claude Code TUI
+    // time to transition from busy (spinner) to idle (input box visible) after
+    // the active turn finishes, so we can then see whether the prompt is parked.
+    const RESUBMIT_POLL_MS = 6000
     const resubmit = (attempt: number) => {
       try {
-        const pane = execFileSync(TMUX, ['capture-pane', '-t', session, '-p'], { timeout: 3000, encoding: 'utf-8' })
-        const stuck = /❯\s+\S/.test(pane) && pane.includes(marker)
-        if (!stuck) return
-        if (attempt >= 5) {
-          logger.warn({ task: task.name, session }, 'Scheduled prompt still stuck after 5 Enter retries -- giving up')
+        const pane = capturePane(session)
+        if (pane === null) {
+          // Capture failed (session gone?): keep retrying up to the limit so a
+          // brief tmux hiccup does not permanently silence the stuck-detection.
+          if (attempt < 5) setTimeout(() => resubmit(attempt + 1), RESUBMIT_POLL_MS)
           return
         }
-        execFileSync(TMUX, ['send-keys', '-t', session, 'Enter'], { timeout: 3000 })
-        setTimeout(() => resubmit(attempt + 1), 3000)
+        const stuck = /❯\s+\S/.test(pane) && pane.includes(marker)
+        if (stuck) {
+          if (attempt >= 5) {
+            logger.warn({ task: task.name, session }, 'Scheduled prompt still stuck after 5 Enter retries -- giving up')
+            return
+          }
+          execFileSync(TMUX, ['send-keys', '-t', session, 'Enter'], { timeout: 3000 })
+          setTimeout(() => resubmit(attempt + 1), RESUBMIT_POLL_MS)
+          return
+        }
+        // No stuck text visible, but the session may be busy (spinner hiding the
+        // input box) because the /goal turn or another concurrent turn is still
+        // running. In that case the Enter we sent may have been lost in a state-
+        // transition window and the parked text is not yet visible. Wait for idle
+        // and re-check rather than giving up immediately -- this is the root cause
+        // of the igaming task delivery misses (2026-09-27/28).
+        if (!isSessionReadyForPrompt(session)) {
+          if (attempt < 5) {
+            setTimeout(() => resubmit(attempt + 1), RESUBMIT_POLL_MS)
+          } else {
+            logger.warn({ task: task.name, session }, 'Scheduled prompt: session still busy 30s after send -- giving up (delivery uncertain)')
+          }
+          return
+        }
+        // Idle and no stuck input: prompt was received or the input was already clear.
       } catch (err) {
         logger.warn({ err, task: task.name }, 'Post-send resubmit failed')
       }
