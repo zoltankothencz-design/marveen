@@ -93,7 +93,10 @@ function checkStaleOccurrence(taskName: string, occurrenceMs: number, occurrence
 // which does a deferred post-fire verification before recording the run.
 // usePasteBuffer: when true, uses sendPromptViaPasteBuffer instead of
 // sendPromptToSession. Intended for boot triggers with long prompts (6k+ chars)
-// where the chunked send-keys approach is less reliable.
+// where the chunked send-keys approach is less reliable. Also used for tasks
+// with a goal field: after /goal settles there is a brief state-transition
+// window before the input box is truly stable; the atomic paste-buffer avoids
+// the race that the 80-char chunking loop hits during that window.
 function attemptFireTask(task: ScheduledTask, agentName: string, now: number, skipRecord = false, usePasteBuffer = false, firedSessionsThisTick?: Set<string>): 'fired' | 'busy' | 'missing' | 'error' {
   const isMainAgent = agentName === MAIN_AGENT_ID
   // Allow per-task session override via targetSession config field.
@@ -261,6 +264,9 @@ function attemptFireTask(task: ScheduledTask, agentName: string, now: number, sk
           return
         }
         // Idle and no stuck input: prompt was received or the input was already clear.
+        // Log so that a silent loss (prompt never landed, session already idle) is
+        // visible in dashboard.log -- look for this line if delivery is still missed.
+        logger.info({ task: task.name, session, attempt }, 'Scheduled prompt resubmit: idle+no stuck input -- assuming delivered')
       } catch (err) {
         logger.warn({ err, task: task.name }, 'Post-send resubmit failed')
       }
@@ -452,7 +458,7 @@ export function startScheduleRunner(): NodeJS.Timeout {
       pendingKeys.add(key)
 
       const view = toPendingRetryView(row, now)
-      const result = attemptFireTask(taskDef, row.agent_name, now, false, false, firedSessionsThisTick)
+      const result = attemptFireTask(taskDef, row.agent_name, now, false, !!taskDef.goal, firedSessionsThisTick)
       if (result === 'fired') {
         deletePendingTaskRetry(row.task_name, row.agent_name)
         continue
@@ -514,7 +520,7 @@ export function startScheduleRunner(): NodeJS.Timeout {
         // If already queued for retry from an earlier tick, leave it to
         // the retry handler -- don't re-queue or double-fire.
         if (pendingKeys.has(key)) continue
-        const result = attemptFireTask(task, agentName, now, false, false, firedSessionsThisTick)
+        const result = attemptFireTask(task, agentName, now, false, !!task.goal, firedSessionsThisTick)
         if (result === 'busy') {
           if (task.skipIfBusy) {
             // Opt-in skip for short-cadence tasks (e.g. 30-min heartbeats):
