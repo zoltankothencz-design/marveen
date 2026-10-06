@@ -56,7 +56,7 @@ def warn_refresh_token_expiry(oauth: dict):
     log(f"FIGYELEM: refresh token lejar {when}-kor ({left/3600:.0f} ora mulva) -- kezi /login kell elotte")
     subprocess.Popen(["bash", NOTIFY_SH,
         f"⏰ MARVEEN: a Claude Code refresh token {when}-kor vegleg lejar. "
-        f"Addig csinalj egy kezi /login-t a WSL-ben, kulonben minden ugynok kiesik."])
+        f"Addig csinalj egy kezi /login-t a VPS-en (ssh userzoltan@100.84.169.103, majd claude /login), kulonben minden ugynok kiesik."])
     with open(RT_WARN_STAMP, "w") as f:
         f.write(today)
 

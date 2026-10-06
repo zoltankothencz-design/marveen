@@ -19,8 +19,9 @@ def main():
 
     try:
         from faster_whisper import WhisperModel
-        model = WhisperModel("small", device="cpu", compute_type="int8")
-        segments, info = model.transcribe(audio_path, language="hu", beam_size=5)
+        model = WhisperModel("large-v3", device="cpu", compute_type="int8", cpu_threads=8)
+        prompt = "Marveen, Optimus, Job Hunter, job scan, SZTFH, Power BI, DAX, Gerillamentor, iGaming, Las Vegas Casino, LinkedIn, Telegram, VPS, ElevenLabs."
+        segments, info = model.transcribe(audio_path, language="hu", beam_size=5, initial_prompt=prompt)
         text = " ".join(s.text.strip() for s in segments).strip()
         if text:
             print(text)

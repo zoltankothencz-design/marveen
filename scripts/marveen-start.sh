@@ -27,10 +27,10 @@ if [ -f "$DASH_LOG" ] && [ "$(stat -c%s "$DASH_LOG" 2>/dev/null || echo 0)" -gt 
     mv "$DASH_LOG" "${DASH_LOG}.1"
     log "Dashboard log rotalt (>20MB) -> dashboard.log.1"
 fi
-if ! tmux has-session -t marveen-dashboard 2>/dev/null; then
+if ! tmux has-session -t "=marveen-dashboard" 2>/dev/null; then
     log "Dashboard inditas (node)..."
     tmux new-session -d -s marveen-dashboard -c "$INSTALL_DIR" \
-        "WEB_HOST=0.0.0.0 node dist/index.js >> $DASH_LOG 2>&1"
+        "WEB_HOST=0.0.0.0 DASHBOARD_EXTRA_ORIGINS=http://100.84.169.103:3420 node dist/index.js >> $DASH_LOG 2>&1"
     sleep 3
     log "Dashboard session elindult"
 else

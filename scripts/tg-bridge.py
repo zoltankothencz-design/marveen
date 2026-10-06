@@ -316,7 +316,7 @@ def main():
                     log(f'HANG: {user} hanguzenet ({voice.get("duration", "?")}s)')
                     transcribed = transcribe_voice(voice['file_id'])
                     if transcribed:
-                        text = transcribed
+                        text = '[TELEGRAM HANG - atirt hanguzenet, elirás lehetseges] ' + transcribed
                         log(f'HANG->SZOVEG: {text[:80]}')
                     else:
                         log('HANG: atiras sikertelen, kihagyva')

@@ -62,3 +62,6 @@ credentials.md
 .ssh/
 .playwright-mcp/
 scripts/__pycache__/
+
+# Local backup copies
+*.bak-*
