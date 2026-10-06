@@ -4880,3 +4880,7 @@ main {
   .auth-mode-cards { gap: 6px; }
   .auth-mode-card { padding: 10px 12px; gap: 10px; }
 }
+
+/* Touch drag: no iOS callout/selection during long-press */
+.kanban-card { -webkit-touch-callout: none; -webkit-user-select: none; }
+.kanban-card.dragging { box-shadow: 0 6px 18px rgba(0,0,0,.35); }

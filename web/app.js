@@ -278,7 +278,104 @@
   }
 
   // Regex rules for interpolated strings: [pattern, replacement]
+  Object.assign(EN_DICT, {
+    // --- added: dynamic status text, toasts, confirms ---
+    '● Fut': '● Running', '○ Leállva': '○ Stopped', 'főügynök': 'main agent', '(főügynök)': '(main agent)',
+    'beosztott': 'member', 'ugyanaz mint tegnap': 'same as yesterday', 'bejegyzés ·': 'entries ·',
+    'a tegnapihoz': 'vs yesterday', '5h ablak': '5h window', '5h ablak:': '5h window:', 'heti ablak': 'weekly window',
+    'Heti ablak:': 'Weekly window:', 'Kész': 'Done', 'Hiba': 'Error', 'Időtúllépés': 'Timeout',
+    ' néven (szóköz/speciális karakter nem engedélyezett)': ' name (spaces/special characters not allowed)',
+    '(SKILL.md nem található)': '(SKILL.md not found)', '(bot username nélkül)': '(without bot username)',
+    '(kérő:': '(requested by:', '(nincs kimenet)': '(no output)', '). Nincs teendő.': '). Nothing to do.',
+    '-- Nincs MCP szerver --': '-- No MCP server --', '-- Nincs vault kulcs --': '-- No vault key --',
+    '-- nincs --': '-- none --',
+    '-- a claude.ai connectorok elavultak lehetnek.': '-- the claude.ai connectors may be outdated.',
+    '-al tudsz belépni manuálisan.': 'you can log in manually.', '-t a Telegramban': 'in Telegram',
+    '. napján': '. day', 'A cégnév kötelező.': 'Company name is required.',
+    'A dashboard nem tudja automatikusan detektálni ezt a képességet': 'The dashboard cannot detect this capability automatically',
+    'A lista a dashboard indulasakor toltodik be': 'The list is loaded when the dashboard starts',
+    'A vágólapra másolás nem sikerült': 'Copying to the clipboard failed',
+    'A working tree-ben lokális változtatások vannak. Stash-eljem őket automatikusan, frissítsek, majd visszaállítsam?': 'The working tree has local changes. Stash them automatically, update, then restore them?',
+    'AI szétbont': 'AI breakdown', 'AKTÍV (': 'ACTIVE (', 'ANTHROPIC_API_KEY a vault-bol': 'ANTHROPIC_API_KEY from the vault',
+    'API kulcs konfigurálva a vault-ban': 'API key configured in the vault', 'Add meg a feladatot': 'Enter the task',
+    'Agent újraindítva host OAuth-tal': 'Agent restarted with host OAuth', 'Agent újraindítása sikertelen': 'Agent restart failed',
+    'Aktiv incidens': 'Active incident', 'Aktív / Kikapcsolva': 'Active / Disabled', 'Auth URL nem talalhato': 'Auth URL not found',
+    'Automatikusan elérhető minden sub-agent számára (közös HOME).': 'Automatically available to every sub-agent (shared HOME).',
+    'Avatar feltöltve, kép elküldve Telegramon': 'Avatar uploaded, image sent on Telegram',
+    'Biztonsági zár': 'Security lock', 'Biztosan eltávolítod ezt a': 'Are you sure you want to remove this', 'Biztosan eltávolítod:': 'Are you sure you want to remove:',
+    'Biztosan levalasztod a': 'Are you sure you want to disconnect', 'Biztosan leállítod az ügynököt?': 'Are you sure you want to stop the agent?',
+    'Biztosan leállítod?': 'Are you sure you want to stop it?', 'Biztosan torlod ezt az emleket?': 'Are you sure you want to delete this memory?',
+    'Biztosan törlöd ezt a feladatot?': 'Are you sure you want to delete this task?', 'Biztosan törlöd ezt a kártyát?': 'Are you sure you want to delete this card?',
+    'Biztosan törlöd:': 'Are you sure you want to delete:', 'Biztosan visszavonod ezt a meghívó linket?': 'Are you sure you want to revoke this invite link?',
+    'Biztosan visszavonod ezt a várakozó ütemezett feladatot?': 'Are you sure you want to revoke this pending scheduled task?',
+    'Breakdown elvetve': 'Breakdown discarded', 'Breakdown hiba': 'Breakdown error', 'Böngésző automatizálás': 'Browser automation',
+    'Connector betöltés hiba:': 'Connector load error:', 'Connector hozzáadva "': 'Connector added "', 'Connector hozzáadva!': 'Connector added!',
+    'Connector törölve': 'Connector deleted', 'Csak png/jpg/webp formátum': 'PNG/JPG/WebP format only', 'Csapat mentve (kivett:': 'Team saved (removed:',
+    'Csatorna engedélyezve': 'Channel enabled', 'Discord bot bekotese': 'Connect Discord bot', 'Dokumentáció megnyitása': 'Open documentation',
+    'Feladat létrehozva!': 'Task created!', 'Feladat szüneteltetve': 'Task paused', 'Feladat újraindult': 'Task resumed',
+    'Felelős frissítve': 'Assignee updated', 'Felhasználói profil': 'User profile',
+    'Frissítés elindult, a dashboard újratöltődik...': 'Update started, the dashboard is reloading...',
+    'Frissítés most. A szolgáltatások újraindulnak, a dashboard ~30 másodpercig nem érhető el. Folytatod?': 'Update now. Services will restart and the dashboard will be unavailable for ~30 seconds. Continue?',
+    'Frissítés nem indult:': 'Update did not start:', 'Frissítés sikertelen:': 'Update failed:', 'Függőben lévő ütemezett feladatok (': 'Pending scheduled tasks (',
+    'Globálisan elérhető a fő agentnek -- nem kell külön hozzárendelni': 'Globally available to the main agent -- no separate assignment needed',
+    'Hard restart a marveen-channels session-ön. A folyamatban lévő Marveen beszélgetés elveszik (memória megmarad). Folytatod?': 'Hard restart of the marveen-channels session. The current Marveen conversation will be lost (memory is kept). Continue?',
+    'Hiba a csapat mentésekor': 'Error saving the team', 'Hiba a feltöltés során': 'Error during upload',
+    'Hiba a hozzarendeles betoltesekor:': 'Error loading assignments:', 'Hiba a hozzárendelés során': 'Error during assignment',
+    'Hiba a kibővítés során': 'Error during expansion', 'Hiba a kérdések generálásakor': 'Error generating questions',
+    'Hiba a költöztetés során': 'Error during migration', 'Hiba a leválasztás során': 'Error during disconnect',
+    'Hiba a megjegyzés mentése során': 'Error saving the comment', 'Hiba a mentes soran': 'Error while saving',
+    'Hiba a mentés során': 'Error while saving', 'Hiba a mentésnél': 'Error while saving', 'Hiba a mentésnél (': 'Error while saving (',
+    'Hiba a profil mentésekor': 'Error saving the profile', 'Hiba a státusz lekérésnél': 'Error fetching the status',
+    'Hiba a subtask-ok mentése során': 'Error saving subtasks', 'Hiba a törlés során': 'Error during deletion',
+    'Hiba a vektor generálás során': 'Error during vector generation', 'Hiba az alkalmazás során': 'Error while applying',
+    'Hiba az archiválás során': 'Error during archiving', 'Hiba az avatar mentése során': 'Error saving the avatar',
+    'Hiba az áthelyezés során': 'Error during move', 'Hiba tortent': 'An error occurred', 'Hiba történt': 'An error occurred',
+    'Hibak:': 'Errors:', 'Hitelesítési mód mentve (újraindítás szukseges)': 'Auth mode saved (restart required)',
+    'Hálózati hiba az auth-flow indításakor': 'Network error starting the auth flow', 'Háttérfeladat elindítva': 'Background task started',
+    'Illeszd be a értéket': 'Paste the value', 'Indítási hiba': 'Start error', 'Ismeretlen hiba': 'Unknown error',
+    'Kanban betöltés hiba:': 'Kanban load error:', 'Kapcsolat rendben!': 'Connection OK!', 'Kapcsolat tesztelése sikertelen': 'Connection test failed',
+    'Kattints a "Gyűjtés" gombra': 'Click the "Collect" button', 'Kattints a módosításhoz': 'Click to edit',
+    'Keresés (ágens, tool, tartalom)...': 'Search (agent, tool, content)...', 'Klónozás és telepítés...': 'Cloning and installing...',
+    'Konfiguráció sikertelen': 'Configuration failed', 'Képernyő vezérlés, kattintás, gépelés': 'Screen control, clicking, typing',
+    'Kérdések generálása...': 'Generating questions...', 'Kész (': 'Done (', 'MCP lista frissítve (': 'MCP list refreshed (',
+    'MCP lista nem tölthető be:': 'MCP list could not be loaded:', 'Marveen channels újraindítva': 'Marveen channels restarted',
+    'Meghívó link létrehozva és vágólapra másolva': 'Invite link created and copied to the clipboard',
+    'Meghívó link létrehozva — kattints a Másol gombra': 'Invite link created - click the Copy button',
+    'Meghívó létrejött (bot username pending — frissítés)': 'Invite created (bot username pending - refresh)',
+    'Meghívó visszavonva': 'Invite revoked', 'Megnyitás (api.slack.com)': 'Open (api.slack.com)', 'Mentés sikertelen.': 'Save failed.',
+    'Minden hónap': 'Every month', 'Minden mezo kitoltese kotelezo': 'All fields are required', 'Minden szolgáltatás működik': 'All services are working',
+    'Minden órában': 'Every hour', 'Modell mentve (újraindítás szükséges)': 'Model saved (restart required)',
+    'Másold be a Bot Token-t (xoxb-...) és az App Token-t (xapp-...)': 'Paste the Bot Token (xoxb-...) and the App Token (xapp-...)',
+    'Másolás sikertelen': 'Copy failed', 'Még nem módosított': 'Not modified yet', 'Napi napló': 'Daily log',
+    'Nem sikerult betolteni a statuszt': 'Could not load the status', 'Nem sikerült betölteni a manifestet': 'Could not load the manifest',
+    'Nem sikerült elindítani': 'Could not start', 'Nem sikerült leállítani': 'Could not stop', 'Nincs API kulcs beállítva': 'No API key configured',
+    'Nincs adat a kiválasztott időszakra': 'No data for the selected period', 'Nincs feladat': 'No tasks',
+    'Nincs importálható tartalom a fájlokban': 'No importable content in the files', 'Nincs kivalasztott elem': 'No item selected',
+    'Nincs leírás': 'No description', 'Nincs sub-agent létrehozva.': 'No sub-agent created.', 'Nincs szinkronizalando kotes': 'No bindings to sync',
+    'Nincsenek hozzarendelheto ügynökök': 'No assignable agents', 'Pending retry betöltés hiba:': 'Pending retry load error:',
+    'Pending retry cancel hiba:': 'Pending retry cancel error:', 'Profil mentve (újraindítás szükséges)': 'Profile saved (restart required)',
+    'Reconnect hiba': 'Reconnect error', 'SOUL.md generálás...': 'Generating SOUL.md...', 'Skill importálva:': 'Skill imported:',
+    'Skill törlése:': 'Delete skill:', 'Smoke-test hiba': 'Smoke-test error', 'Státusz nem elérhető': 'Status unavailable',
+    'Szülő:': 'Parent:', 'Telepitve (kulcsok kihagyva)': 'Installed (keys skipped)', 'Telepitve, kulcsok mentve a Vault-ba!': 'Installed, keys saved to the Vault!',
+    'Telepítés sikertelen': 'Installation failed', 'Törlés sikertelen.': 'Deletion failed.', 'Törlöd:': 'Delete:',
+    'Ugynok letrehozva. Kosd be a csatornat a parosatashoz.': 'Agent created. Connect the channel to pair it.', 'User (saját)': 'User (own)',
+    'Válassz ágenst': 'Select an agent', 'chunk kategorizálása és importálása...': 'chunk categorising and importing...',
+    'csatorna engedélyezési beállításai:': 'channel permission settings:', 'erzekeny ertek talalva, de mind mar a Vault-ban van.': 'sensitive values found, but all are already in the Vault.',
+    'globális connector)': 'global connector)', 'kotes letrehozva': 'binding created', 'megadása kötelező': 'is required',
+    'nap naplóval': 'days with a log', 'nincs válasz': 'no response', 'próbálkozás)': 'attempts)', 'subtask létrehozva': 'subtask created',
+    'user (saját fájl)': 'user (own file)', 'vár (': 'waiting (', 'Ágensek:': 'Agents:', 'Állapot frissítve': 'Status updated',
+    'Áthelyezés sikertelen (HTTP': 'Move failed (HTTP', 'Ügynök betöltése sikertelen': 'Failed to load the agent', 'Ügynök elindítva!': 'Agent started!',
+    'Ügynök leállítva': 'Agent stopped', 'Ügynök lista hiba:': 'Agent list error:', 'Ügynök törölve': 'Agent deleted',
+    'Ügynök-hozzárendelés frissítve': 'Agent assignment updated', 'önreferenciák:': 'self-references:', 'új commit elérhető': 'new commit available',
+    'új)': 'new)',
+  })
+
   const EN_RULES = [
+    [/^(\d+) összesen$/, '$1 total'],
+    [/^Illeszd be a (.+) értéket$/, 'Paste the $1 value'],
+    [/^([+-]?\d+) a tegnapihoz$/, '$1 vs yesterday'],
+    [/^bejegyzés · (\d+) kategória$/, 'entries · $1 categories'],
+    [/^(\d+) naplóbejegyzés$/, '$1 log entries'],
     [/^(\d+) hívás, out: (.*)$/, '$1 calls, out: $2'],
     [/^(\d+) bejegyzés$/, '$1 entries'],
     [/^(\d+) emlék$/, '$1 memories'],
@@ -297,6 +394,10 @@
   const dictLookup = new Map(Object.entries(EN_DICT).map(([k, v]) => [k.replace(/\s+/g, ' ').trim(), v]))
   // Longest keys first, for prefix matching of "label: dynamic value" strings.
   const prefixKeys = [...dictLookup.keys()].filter(k => /[:] ?$/.test(k) || k.endsWith(' ')).sort((a, b) => b.length - a.length)
+
+  const phraseKeys = [...dictLookup.keys()]
+    .filter(k => !k.includes('${') && (k.length >= 8 || k.includes(' ')) && k.length >= 6)
+    .sort((a, b) => b.length - a.length)
 
   function translateString(s) {
     const lead = s.match(/^\s*/)[0]
@@ -317,6 +418,14 @@
           break
         }
       }
+    }
+    if (out === undefined) {
+      // Last resort: replace known phrases inside composed sentences.
+      let rep = core
+      for (const k of phraseKeys) {
+        if (rep.includes(k)) rep = rep.split(k).join(dictLookup.get(k))
+      }
+      if (rep !== core) out = rep
     }
     return out === undefined ? s : lead + out + trail
   }
@@ -681,12 +790,14 @@ async function loadSubtaskBadges() {
   }))
 }
 
+const IS_TOUCH_DEVICE = (typeof window !== 'undefined') && (('ontouchstart' in window) || navigator.maxTouchPoints > 0)
+
 function createCardEl(card) {
   const el = document.createElement('div')
   el.className = 'kanban-card'
   el.dataset.id = card.id
   el.dataset.priority = card.priority
-  el.draggable = true
+  el.draggable = !IS_TOUCH_DEVICE
 
   const assignee = card.assignee ? kanbanAssignees.find((a) => a.name === card.assignee) : null
   const assigneeHtml = assignee
@@ -699,7 +810,7 @@ function createCardEl(card) {
     const now = new Date()
     const overdue = d < now && card.status !== 'done'
     const label = d.toLocaleDateString(window.APP_LOCALE(), { month: 'short', day: 'numeric' })
-    dueHtml = `<span class="kanban-card-due ${overdue ? 'overdue' : ''}">${label}</span>`
+    if (!isNaN(d)) dueHtml = `<span class="kanban-card-due ${overdue ? 'overdue' : ''}">${label}</span>`
   }
 
   const projectHtml = card.project
@@ -730,6 +841,8 @@ function createCardEl(card) {
   })
   el.addEventListener('dragend', () => el.classList.remove('dragging'))
 
+  if (IS_TOUCH_DEVICE) attachTouchDrag(el)
+
   // Click -> detail
   el.addEventListener('click', () => showCardDetail(card))
 
@@ -758,29 +871,109 @@ columns.forEach((col) => {
     if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over')
   })
 
-  col.addEventListener('drop', async (e) => {
+  col.addEventListener('drop', (e) => {
     e.preventDefault()
     col.classList.remove('drag-over')
-    const cardId = e.dataTransfer.getData('text/plain')
-    const newStatus = col.dataset.status
-
-    // Calculate sort_order based on position
-    const cards = [...col.querySelectorAll('.kanban-card')]
-    const idx = cards.findIndex((c) => c.dataset.id === cardId)
-    let sortOrder = idx
-
-    try {
-      await fetch(`/api/kanban/${encodeURIComponent(cardId)}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, sort_order: sortOrder }),
-      })
-      loadKanban()
-    } catch {
-      showToast('Hiba az áthelyezés során')
-    }
+    moveCardTo(e.dataTransfer.getData('text/plain'), col)
   })
 })
+
+async function moveCardTo(cardId, col) {
+  const newStatus = col.dataset.status
+
+  // Calculate sort_order based on position
+  const cards = [...col.querySelectorAll('.kanban-card')]
+  const idx = cards.findIndex((c) => c.dataset.id === cardId)
+  let sortOrder = idx
+
+  try {
+    const res = await fetch(`/api/kanban/${encodeURIComponent(cardId)}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus, sort_order: sortOrder }),
+    })
+    if (!res.ok) {
+      console.error('Kanban move failed:', res.status, cardId, newStatus)
+      showToast(`Áthelyezés sikertelen (HTTP ${res.status})`, 5000)
+    }
+    loadKanban()
+  } catch (err) {
+    console.error('Kanban move error:', err)
+    showToast('Hiba az áthelyezés során')
+  }
+}
+
+// Touch drag (iOS/Android do not fire HTML5 drag events): long-press a card,
+// then move the finger to another column and release.
+function attachTouchDrag(el) {
+  const HOLD_MS = 350
+  const MOVE_TOLERANCE = 10
+  let holdTimer = null
+  let dragging = false
+  let startX = 0
+  let startY = 0
+  let lastCol = null
+  let suppressClick = false
+
+  const colAt = (x, y) => {
+    const hit = document.elementFromPoint(x, y)
+    return hit ? hit.closest('.kanban-col-body') : null
+  }
+  const cancelHold = () => { clearTimeout(holdTimer); holdTimer = null }
+  const finish = (drop) => {
+    cancelHold()
+    if (!dragging) return
+    dragging = false
+    el.classList.remove('dragging')
+    columns.forEach((c) => c.classList.remove('drag-over'))
+    suppressClick = true
+    setTimeout(() => { suppressClick = false }, 400)
+    if (drop && lastCol) moveCardTo(el.dataset.id, lastCol)
+    else loadKanban()
+    lastCol = null
+  }
+
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || e.target.closest('button')) return
+    startX = e.touches[0].clientX
+    startY = e.touches[0].clientY
+    cancelHold()
+    holdTimer = setTimeout(() => {
+      dragging = true
+      el.classList.add('dragging')
+      if (navigator.vibrate) navigator.vibrate(30)
+    }, HOLD_MS)
+  }, { passive: true })
+
+  el.addEventListener('touchmove', (e) => {
+    const t = e.touches[0]
+    if (!dragging) {
+      // Finger moved before the hold elapsed: user is scrolling, not dragging.
+      if (Math.abs(t.clientX - startX) > MOVE_TOLERANCE || Math.abs(t.clientY - startY) > MOVE_TOLERANCE) cancelHold()
+      return
+    }
+    e.preventDefault() // stop page scroll while dragging
+    const col = colAt(t.clientX, t.clientY)
+    columns.forEach((c) => c.classList.toggle('drag-over', c === col))
+    if (col) {
+      lastCol = col
+      const afterEl = getDragAfterElement(col, t.clientY)
+      if (afterEl) col.insertBefore(el, afterEl)
+      else col.appendChild(el)
+    }
+    // Auto-scroll when the finger nears the top/bottom edge
+    const EDGE = 70
+    if (t.clientY < EDGE) window.scrollBy(0, -12)
+    else if (t.clientY > window.innerHeight - EDGE) window.scrollBy(0, 12)
+  }, { passive: false })
+
+  el.addEventListener('touchend', () => finish(true))
+  el.addEventListener('touchcancel', () => finish(false))
+  el.addEventListener('contextmenu', (e) => { if (dragging || holdTimer) e.preventDefault() })
+  el.addEventListener('click', (e) => {
+    if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault() }
+  }, true)
+}
 
 function getDragAfterElement(col, y) {
   const els = [...col.querySelectorAll('.kanban-card:not(.dragging)')]
@@ -880,7 +1073,7 @@ async function showCardDetail(card) {
   meta.innerHTML = `
     <div class="meta-item">
       <span class="meta-label">Állapot</span>
-      <span class="meta-value">${statusLabels[card.status] || card.status}</span>
+      <span class="meta-value meta-value-editable" id="metaStatusValue" data-card-id="${card.id}" title="Kattints a módosításhoz">${statusLabels[card.status] || card.status}</span>
     </div>
     <div class="meta-item">
       <span class="meta-label">Felelős</span>
@@ -899,6 +1092,56 @@ async function showCardDetail(card) {
       <span class="meta-value">${card.due_date ? new Date(card.due_date * 1000).toLocaleDateString(window.APP_LOCALE()) : '-- nincs --'}</span>
     </div>
   `
+
+  // Inline edit for status on detail view (mobile-friendly alternative to drag and drop)
+  const statusValueEl = document.getElementById('metaStatusValue')
+  statusValueEl.addEventListener('click', () => {
+    if (statusValueEl.querySelector('select')) return
+    const current = card.status
+    const sel = document.createElement('select')
+    sel.style.cssText = 'padding:2px 6px; border-radius:4px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-size:inherit'
+    for (const [value, label] of Object.entries(statusLabels)) {
+      const opt = document.createElement('option')
+      opt.value = value
+      opt.textContent = label
+      if (value === current) opt.selected = true
+      sel.appendChild(opt)
+    }
+    statusValueEl.innerHTML = ''
+    statusValueEl.appendChild(sel)
+    sel.focus()
+    const save = async () => {
+      const newStatus = sel.value
+      if (newStatus === current) {
+        statusValueEl.textContent = statusLabels[current] || current
+        return
+      }
+      // Append to the end of the target column
+      const inTarget = kanbanCards.filter((c) => c.status === newStatus && c.id !== card.id)
+      const sortOrder = inTarget.length ? Math.max(...inTarget.map((c) => c.sort_order)) + 1 : 0
+      try {
+        const r = await fetch(`/api/kanban/${encodeURIComponent(card.id)}/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, sort_order: sortOrder }),
+        })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        card.status = newStatus
+        statusValueEl.textContent = statusLabels[newStatus] || newStatus
+        showToast('Állapot frissítve')
+        loadKanban()
+      } catch (err) {
+        statusValueEl.textContent = statusLabels[current] || current
+        showToast(`Hiba a mentésnél (${err.message})`, 5000)
+      }
+    }
+    sel.addEventListener('change', save)
+    sel.addEventListener('blur', () => {
+      if (statusValueEl.querySelector('select')) {
+        statusValueEl.textContent = statusLabels[card.status] || card.status
+      }
+    })
+  })
 
   // Inline edit for assignee on detail view
   const assigneeValueEl = document.getElementById('metaAssigneeValue')
@@ -7110,7 +7353,7 @@ async function loadOverview() {
     const taskDiff = d.tasksToday - d.tasksYesterday
     document.getElementById('statTasksSub').textContent = taskDiff === 0 ? 'ugyanaz mint tegnap' : (taskDiff > 0 ? `+${taskDiff} a tegnapihoz` : `${taskDiff} a tegnapihoz`)
     document.getElementById('statMemories').textContent = d.memories.count.toLocaleString(window.APP_LOCALE()).replace(/,/g, ' ')
-    document.getElementById('statMemoriesSub').textContent = `bejegyzés · ${d.memories.categories} category`
+    document.getElementById('statMemoriesSub').textContent = `bejegyzés · ${d.memories.categories} kategória`
     document.getElementById('statSkills').textContent = d.skills.count
     document.getElementById('statSkillsSub').textContent = d.skills.today > 0 ? `ebből ${d.skills.today} ma` : ''
     // Team: reuse the hierarchy graph renderer so the overview card shows
