@@ -126,8 +126,21 @@ body {
   padding-top: 12px;
   border-top: 1px solid var(--border);
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
+.lang-switch { display: flex; align-items: stretch; gap: 10px; }
+.lang-sep { width: 1px; background: var(--border); }
+.lang-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 4px 6px; border: 0; background: none; cursor: pointer;
+  color: var(--text-muted, var(--text)); font: inherit; font-size: 11px; font-weight: 600;
+  letter-spacing: .12em; opacity: .55; transition: opacity .15s;
+}
+.lang-btn:hover, .lang-btn.active { opacity: 1; }
+.lang-btn.active .lang-code { color: var(--accent); }
+.lang-flag { width: 24px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.18); }
 
 /* === Header === */
 header {

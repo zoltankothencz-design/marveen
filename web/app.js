@@ -248,7 +248,7 @@ function createCardEl(card) {
     const d = new Date(card.due_date * 1000)
     const now = new Date()
     const overdue = d < now && card.status !== 'done'
-    const label = d.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })
+    const label = d.toLocaleDateString(window.APP_LOCALE(), { month: 'short', day: 'numeric' })
     dueHtml = `<span class="kanban-card-due ${overdue ? 'overdue' : ''}">${label}</span>`
   }
 
@@ -446,7 +446,7 @@ async function showCardDetail(card) {
     </div>
     <div class="meta-item">
       <span class="meta-label">Határidő</span>
-      <span class="meta-value">${card.due_date ? new Date(card.due_date * 1000).toLocaleDateString('hu-HU') : '-- nincs --'}</span>
+      <span class="meta-value">${card.due_date ? new Date(card.due_date * 1000).toLocaleDateString(window.APP_LOCALE()) : '-- nincs --'}</span>
     </div>
   `
 
@@ -507,7 +507,7 @@ async function showCardDetail(card) {
     const list = document.getElementById('commentsList')
     list.innerHTML = ''
     for (const c of comments) {
-      const date = new Date(c.created_at * 1000).toLocaleString('hu-HU')
+      const date = new Date(c.created_at * 1000).toLocaleString(window.APP_LOCALE())
       const div = document.createElement('div')
       div.className = 'comment-item'
       div.innerHTML = `
@@ -2026,7 +2026,7 @@ async function refreshPendingPairings() {
     for (const p of pending) {
       const item = document.createElement('div')
       item.className = 'tg-pending-item'
-      const created = new Date(p.createdAt).toLocaleString('hu-HU')
+      const created = new Date(p.createdAt).toLocaleString(window.APP_LOCALE())
       item.innerHTML = `
         <div>
           <span class="tg-pending-code">${escapeHtml(p.code)}</span>
@@ -2248,7 +2248,7 @@ async function refreshChannelRequests() {
       const item = document.createElement('div')
       item.className = 'tg-allowed-item'
       const name = req.channel_name ? escapeHtml(req.channel_name) : req.channel_id
-      const ts = new Date(req.requested_at * 1000).toLocaleString('hu-HU')
+      const ts = new Date(req.requested_at * 1000).toLocaleString(window.APP_LOCALE())
       const userId = req.user_id ? `<span class="tg-allowed-id">user: ${escapeHtml(req.user_id)}</span>` : ''
       item.innerHTML = `
         <div class="tg-allowed-meta">
@@ -4397,7 +4397,7 @@ function renderLogEntries(entries) {
   empty.hidden = entries.length > 0
 
   for (const entry of entries) {
-    const time = new Date(entry.created_at * 1000).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+    const time = new Date(entry.created_at * 1000).toLocaleTimeString(window.APP_LOCALE(), { hour: '2-digit', minute: '2-digit' })
     const div = document.createElement('div')
     div.className = 'log-entry'
     div.innerHTML = `
@@ -4410,7 +4410,7 @@ function renderLogEntries(entries) {
 
 function formatLogDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+  return d.toLocaleDateString(window.APP_LOCALE(), { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
 }
 
 // Date navigation
@@ -5014,7 +5014,7 @@ async function loadGitHubRepos() {
     for (const r of repos) {
       const item = document.createElement('div')
       item.className = 'connector-external-item github-repo-item'
-      const date = new Date(r.installedAt).toLocaleDateString('hu-HU')
+      const date = new Date(r.installedAt).toLocaleDateString(window.APP_LOCALE())
       item.innerHTML = `<div class="github-repo-info"><span class="github-repo-name">${escapeHtml(r.name.replace('--', '/'))}</span><span class="github-repo-date">${date}</span></div><div class="github-repo-actions"><button class="github-repo-update" title="Frissites">&#x21bb;</button><button class="github-repo-delete" title="Torles">&times;</button></div>`
       item.querySelector('.github-repo-update').addEventListener('click', async (e) => {
         const btn = e.currentTarget
@@ -5122,7 +5122,7 @@ async function loadVault() {
     for (const s of secrets) {
       const item = document.createElement('div')
       item.className = 'connector-external-item'
-      const date = new Date(s.updatedAt).toLocaleDateString('hu-HU')
+      const date = new Date(s.updatedAt).toLocaleDateString(window.APP_LOCALE())
       item.innerHTML = `<div class="github-repo-info"><span class="github-repo-name">${escapeHtml(s.label)}</span><span class="github-repo-date">${escapeHtml(s.id)} &middot; ${date}</span></div><button title="Torles" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px 6px">&times;</button>`
       item.querySelector('button').addEventListener('click', async () => {
         if (!confirm(`Torlod: ${s.label}?`)) return
@@ -5234,7 +5234,7 @@ function renderVaultGrid(secrets) {
   for (const s of secrets) {
     const card = document.createElement('div')
     card.className = 'vault-card'
-    const date = new Date(s.updatedAt).toLocaleDateString('hu-HU')
+    const date = new Date(s.updatedAt).toLocaleDateString(window.APP_LOCALE())
     const bindingCount = _vaultBindings.filter(b => b.vaultSecretId === s.id).length
     const bindingBadge = bindingCount > 0 ? `<span class="vault-binding-badge" title="${bindingCount} kotes">${bindingCount} kotes</span>` : ''
     card.innerHTML = `<div class="vault-card-header"><div class="vault-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="vault-card-title"><div class="vault-card-id">${escapeHtml(s.id)} ${bindingBadge}</div>${s.label !== s.id ? `<div class="vault-card-label">${escapeHtml(s.label)}</div>` : ''}</div><div class="vault-card-meta">${date}</div></div><div class="vault-card-actions"><button class="btn-secondary btn-compact vault-card-reveal" data-id="${escapeHtml(s.id)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Mutat</button><button class="btn-secondary btn-compact vault-card-edit" data-id="${escapeHtml(s.id)}" data-label="${escapeHtml(s.label)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modosit</button><button class="btn-secondary btn-compact vault-card-delete" data-id="${escapeHtml(s.id)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Torles</button></div>`
@@ -5948,7 +5948,7 @@ async function loadStatus() {
         }
         const div = document.createElement('div')
         div.className = `status-incident ${inc.status}`
-        const date = new Date(inc.pubDate).toLocaleString('hu-HU', { timeZone: 'Europe/Budapest' })
+        const date = new Date(inc.pubDate).toLocaleString(window.APP_LOCALE(), { timeZone: 'Europe/Budapest' })
         div.innerHTML = `
           <div class="status-incident-header">
             <span class="status-incident-title">${escapeHtml(inc.title)}</span>
@@ -6659,7 +6659,7 @@ async function loadOverview() {
     document.getElementById('statTasks').textContent = d.tasksToday
     const taskDiff = d.tasksToday - d.tasksYesterday
     document.getElementById('statTasksSub').textContent = taskDiff === 0 ? 'ugyanaz mint tegnap' : (taskDiff > 0 ? `+${taskDiff} a tegnapihoz` : `${taskDiff} a tegnapihoz`)
-    document.getElementById('statMemories').textContent = d.memories.count.toLocaleString('hu-HU').replace(/,/g, ' ')
+    document.getElementById('statMemories').textContent = d.memories.count.toLocaleString(window.APP_LOCALE()).replace(/,/g, ' ')
     document.getElementById('statMemoriesSub').textContent = `bejegyzés · ${d.memories.categories} category`
     document.getElementById('statSkills').textContent = d.skills.count
     document.getElementById('statSkillsSub').textContent = d.skills.today > 0 ? `ebből ${d.skills.today} ma` : ''
@@ -7352,7 +7352,7 @@ async function loadAutonomy() {
 
     if (config.updated_at > 0) {
       const d = new Date(config.updated_at * 1000)
-      footer.textContent = 'Utolsó módosítás: ' + d.toLocaleString('hu-HU')
+      footer.textContent = 'Utolsó módosítás: ' + d.toLocaleString(window.APP_LOCALE())
     } else {
       footer.textContent = 'Még nem módosított'
     }
