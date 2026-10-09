@@ -478,7 +478,9 @@ export function startScheduleRunner(): NodeJS.Timeout {
 
     for (const task of tasks) {
       if (!task.enabled) continue
-      if (!cronMatchesNow(task.schedule, catchUp)) continue
+      // Match against the tick's start time, not the live clock: earlier fires
+      // in this loop block for seconds and must not push later tasks out of the window.
+      if (!cronMatchesNow(task.schedule, catchUp, now)) continue
 
       // Prevent double-firing: skip if already ran within the catch-up window
       const lastRun = scheduleLastRun.get(task.name) || 0
@@ -494,7 +496,7 @@ export function startScheduleRunner(): NodeJS.Timeout {
       // on a deliberate silent-drop is a false positive.
       if (!task.skipIfBusy) {
         try {
-          const occurrenceMs = CronExpressionParser.parse(task.schedule).prev().getTime()
+          const occurrenceMs = CronExpressionParser.parse(task.schedule, { currentDate: new Date(now) }).prev().getTime()
           const occurrenceKey = `${task.name}@${occurrenceMs}`
           if (!staleCheckScheduled.has(occurrenceKey)) {
             staleCheckScheduled.add(occurrenceKey)

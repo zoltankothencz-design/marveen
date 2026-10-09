@@ -32,6 +32,19 @@ if [ -n "$TOKEN" ]; then
     fi
 fi
 
+# 2b. Kozvetlen SQLite ellenorzes (az /api/daily-log uresen is visszaterhet)
+RAN_TODAY=$(python3 -c "
+import sqlite3, datetime
+c = sqlite3.connect('/home/userzoltan/marveen/store/claudeclaw.db')
+r = c.execute(\"SELECT count(*) FROM daily_logs WHERE agent_id='job-hunter' AND date(created_at,'unixepoch','localtime')=?\", (datetime.date.today().isoformat(),)).fetchone()
+print(r[0])
+" 2>/dev/null)
+if [ "${RAN_TODAY:-0}" -gt 0 ] 2>/dev/null; then
+    log "SQLite: mai job-hunter napi log megvan -- scan lefutott. Kilépés."
+    touch "$LOCK_FILE"
+    exit 0
+fi
+
 log "Scan nem futott ma -- kényszerindítás"
 
 # 3. Job-hunter session ellenőrzés + automatikus újraindítás
@@ -58,7 +71,7 @@ fi
 
 # 3c. Ha már aktív (11:00-s schedule runner már triggerelt) -- kihagyás
 PANE2=$(tmux capture-pane -t "$JOB_SESSION" -p -S -5 2>/dev/null)
-if echo "$PANE2" | grep -qE "Baked for|Cooked for|esc to interrupt"; then
+if echo "$PANE2" | grep -q "esc to interrupt"; then
     log "Agent már aktív (dashboard schedule lefutott) -- lockfile és kilépés"
     touch "$LOCK_FILE"
     exit 0
@@ -67,34 +80,25 @@ fi
 # 4. Scan parancs küldése a job-hunter sessionbe
 SCAN_CMD="Napi álláskeresési scan futtatása. Menj végig az összes konfigurált portálon (profession.hu, linkedin, gamblingcareers.com és a többi konfigurált portal), gyűjtsd össze a releváns találatokat, készítsd el a CV-ket, és küldd az eredményt notify.sh-val Telegramon."
 
-tmux send-keys -t "$JOB_SESSION" "$SCAN_CMD" Enter
-log "Scan parancs elküldve a $JOB_SESSION sessionbe (send-keys OK -- még nem igazolt)"
-
-# 5. Post-send ellenőrzés: tényleg elindult-e a scan?
-# A send-keys siker ≠ Enter regisztrált. Ha az agent éppen egy belső
-# állapotátmeneten van, az Enter "beíródik" de nem dolgozódik fel.
-# 6 másodperccel később megnézzük a pane-t -- ha aktív, rendben; ha nem, újraküldünk.
-sleep 6
-PANE_POST=$(tmux capture-pane -t "$JOB_SESSION" -p -S -8 2>/dev/null)
-if echo "$PANE_POST" | grep -qE "esc to interrupt|Baked for|Cooked for"; then
-    log "POST-SEND OK: agent aktív állapotban van, scan elindult"
-    touch "$LOCK_FILE"
-    log "Lockfile létrehozva: $LOCK_FILE"
-else
-    log "POST-SEND WARN: agent 6s után sem látszik aktívnak -- Enter újraküldés"
-    tmux send-keys -t "$JOB_SESSION" "" Enter
-    sleep 8
-    PANE_RETRY=$(tmux capture-pane -t "$JOB_SESSION" -p -S -8 2>/dev/null)
-    if echo "$PANE_RETRY" | grep -qE "esc to interrupt|Baked for|Cooked for"; then
-        log "POST-SEND RETRY OK: scan elindult az Enter újraküldés után"
+# Kuldes igazolt indulassal (literal szoveg, kulon Enter, beragadt input uritese).
+# Lockfile CSAK akkor jon letre, ha a scan tenyleg elindult.
+bash "$INSTALL_DIR/scripts/tmux-send-verified.sh" "$JOB_SESSION" "$SCAN_CMD"
+RC=$?
+case $RC in
+    0)
+        log "POST-SEND OK: agent aktív állapotban van, scan elindult"
         touch "$LOCK_FILE"
         log "Lockfile létrehozva: $LOCK_FILE"
-    else
-        log "POST-SEND RETRY FAIL: agent 14s után sem aktív -- lockfile NEM jön létre, 11:45-ös enforcer újrapróbál"
-        # Lockfile szándékosan NINCS létrehozva: a 11:45-ös cron futtassa újra
+        ;;
+    2)
+        log "Agent már dolgozik -- nem küldtem semmit, lockfile NEM jön létre (a következő futás újra ellenőriz)"
+        exit 0
+        ;;
+    *)
+        log "POST-SEND FAIL (rc=$RC): a scan nem indult el -- lockfile NEM jön létre, a következő enforcer/watchdog újrapróbál"
         exit 1
-    fi
-fi
+        ;;
+esac
 
 # 6. Marveen értesítés (nem Telegram -- csak log)
 log "=== job-scan-enforcer kész ==="

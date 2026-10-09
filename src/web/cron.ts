@@ -25,13 +25,16 @@ export function isValidCronShape(cron: unknown): cron is string {
   }
 }
 
-export function cronMatchesNow(cron: string, catchUpMs: number = 60000): boolean {
+// `nowMs` lets a caller pin the reference time for a whole scheduler tick.
+// Firing a task blocks for several seconds, so re-reading the clock per task
+// made later tasks in the same minute fall outside the catch-up window and
+// get skipped silently (2026-10-08/09: the 11:00 job scans never fired).
+export function cronMatchesNow(cron: string, catchUpMs: number = 60000, nowMs: number = Date.now()): boolean {
   try {
-    const expr = CronExpressionParser.parse(cron)
+    const expr = CronExpressionParser.parse(cron, { currentDate: new Date(nowMs) })
     const prev = expr.prev()
     const prevTime = prev.getTime()
-    const now = Date.now()
-    return (now - prevTime) < catchUpMs
+    return (nowMs - prevTime) < catchUpMs
   } catch {
     return false
   }

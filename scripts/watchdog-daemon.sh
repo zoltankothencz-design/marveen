@@ -323,8 +323,8 @@ check_job_scan() {
     HOUR=$(date +%H)
     MIN=$(date +%M)
     HHMM=$((10#$HOUR * 60 + 10#$MIN))
-    # 11:05 = 665, 14:00 = 840
-    [ "$HHMM" -lt 665 ] || [ "$HHMM" -gt 840 ] && return
+    # 11:10 = 670, 14:00 = 840 (az 11:05-os cron enforcer menjen elobb)
+    [ "$HHMM" -lt 670 ] || [ "$HHMM" -gt 840 ] && return
 
     TODAY=$(date +%Y-%m-%d)
     LOCK="/tmp/job-scan-${TODAY}.done"
@@ -335,6 +335,21 @@ check_job_scan() {
     LAST=0
     [ -f "$JOB_SCAN_COOLDOWN_FILE" ] && LAST=$(cat "$JOB_SCAN_COOLDOWN_FILE")
     [ $((NOW - LAST)) -lt 1800 ] && return
+
+    # Ha a job-hunter mar irt mai napi logot, a scan lefutott: lockfile es kesz.
+    # (Az /api/daily-log megbizhatatlan, ezert kozvetlen SQLite.)
+    local _ran
+    _ran=$(python3 -c "
+import sqlite3, datetime
+c = sqlite3.connect('/home/userzoltan/marveen/store/claudeclaw.db')
+r = c.execute(\"SELECT count(*) FROM daily_logs WHERE agent_id='job-hunter' AND date(created_at,'unixepoch','localtime')=?\", (datetime.date.today().isoformat(),)).fetchone()
+print(r[0])
+" 2>/dev/null)
+    if [ "${_ran:-0}" -gt 0 ] 2>/dev/null; then
+        log "JOB-SCAN: mai job-hunter napi log megvan -- scan lefutott, lockfile"
+        touch "$LOCK"
+        return
+    fi
 
     if ! tmux has-session -t "agent-job-hunter" 2>/dev/null; then
         log "JOB-SCAN: agent-job-hunter session nem fut, nem tudok triggerelni"
@@ -352,8 +367,16 @@ check_job_scan() {
     fi
 
     log "JOB-SCAN: watchdog kényszerindítja a napi scant (cron kihagyta)"
-    tmux send-keys -t "agent-job-hunter" "Napi álláskeresési scan futtatása. Menj végig az összes konfigurált portálon (profession.hu, linkedin, gamblingcareers.com és a többi konfigurált portal), gyűjtsd össze a releváns találatokat, készítsd el a CV-ket, és küldd az eredményt notify.sh-val Telegramon." Enter
-    touch "$LOCK"
+    # Igazolt kuldes: lockfile csak akkor, ha a scan tenyleg elindult. Kulonben a
+    # 11:45-os enforcer azt hinne, hogy mar fut (2026-10-08/09 incidens).
+    bash "$INSTALL_DIR/scripts/tmux-send-verified.sh" "agent-job-hunter" "Napi álláskeresési scan futtatása. Menj végig az összes konfigurált portálon (profession.hu, linkedin, gamblingcareers.com és a többi konfigurált portal), gyűjtsd össze a releváns találatokat, készítsd el a CV-ket, és küldd az eredményt notify.sh-val Telegramon."
+    local _rc=$?
+    if [ "$_rc" -eq 0 ]; then
+        log "JOB-SCAN: scan igazoltan elindult, lockfile letrehozva"
+        touch "$LOCK"
+    else
+        log "JOB-SCAN: scan NEM indult el (rc=$_rc) -- lockfile nincs, cooldown utan ujraprobalok"
+    fi
     echo "$NOW" > "$JOB_SCAN_COOLDOWN_FILE"
 }
 
