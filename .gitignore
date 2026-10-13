@@ -65,3 +65,5 @@ scripts/__pycache__/
 
 # Local backup copies
 *.bak-*
+# nightly Dream Engine output: personal, regenerated daily, never publish
+DREAM.md
