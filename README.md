@@ -15,6 +15,23 @@
 
 Marveen egy AI asszisztens keretrendszer, ami Claude Code-ra épül. Saját AI csapatot építhetsz, akik Telegramon vagy Slacken kommunikálnak veled, önállóan dolgoznak, és egymással is együttműködnek.
 
+## Ez a fork: mit építettem hozzá
+
+> **Az eredeti projekt a [Szotasz/marveen](https://github.com/Szotasz/marveen)** (MIT licenc). A keretrendszer alapja, a memória-rendszer, a skill-factory és a dashboard váza az eredeti szerző munkája, nem az enyém. Ezt a forkot a saját, éles használatomra tartom: egy Linux VPS-en fut, és AI-asszisztált fejlesztéssel (Claude Code) bővítettem. A fork nem követi az eredeti fejlődését (az eredeti jelenleg 1692 committal előrébb jár), az alábbiak az én verziómra vonatkoznak.
+>
+> *English: a production fork of the open-source Marveen (MIT). The core framework is the original author's; the table below lists only my own commits (36 since 2026-05-29, `git log --author=kothencz`), built with Claude Code.*
+
+| Terület | Mit csináltam | Példa-commit |
+|---|---|---|
+| Ütemezett feladatok megbízhatósága | Kihagyott és duplán kézbesített feladatok javítása: azonos percben induló feladatok, ágensenkénti kézbesítés-sorosítás, beillesztés-alapú (paste-buffer) kézbesítés, újrapróbálkozó ciklus hibája, kézbesítés-ellenőrző őr, amely az ágens naplójában keresi a feladat jelzését | `15db67c`, `7bd034d`, `34f650c`, `d6d2d71`, `3d60ae1`, `90fede8` |
+| Üzemeltetés VPS-en | Átállás a laptopos WSL2-ről Linux VPS-re: indító- és őrző-szkriptek javítása, Ollama (memória-keresés) automatikus indítása, watchdog-hibák | `a1c4b3d`, `b17c4dd`, `cf90bc8`, `90c378a` |
+| Dashboard | Bejelentkezés HttpOnly/SameSite sütivel (Safari-hiba), teljesebb angol fordítás, Kanban húzás érintőképernyőn, hibás határidők védelme | `555125f`, `7955f78`, `f06d581` |
+| Telegram-híd | Képek fogadása, a bot-token kiemelése a kódból `.env`-be, token-csere | `3b98d3f`, `9ce8552`, `9ad9c5e` |
+| Saját munkafolyamatok | Napi álláshirdetés-figyelő (nyilvános, bejelentkezés nélküli forrás), CV-PDF készítő ATS-ellenőrzéssel és kétágenses átnézéssel, cégfigyelő | `c7a8eb0`, `dbdc73a`, `8c4899a` |
+| Ágensek | Tesztelő és SEO/értékesítési ágens vázak | `90c378a`, `7ec8fe5` |
+
+Rövid bemutató ábrákkal: **[Portfólió: Marveen](https://website-pi-rouge-9eq0jnej6k.vercel.app/hu/portfolio/marveen)**
+
 ## Funkciók
 
 - **AI Csapat**: Több ágens, mindegyik saját csatornával (Telegram vagy Slack), személyiséggel és memóriával
