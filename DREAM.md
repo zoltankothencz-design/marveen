@@ -1,22 +1,22 @@
-# Dream Engine — 2026-09-11 02:07
+# Dream Engine — 2026-10-13 02:07
 
-## 💡 Skill-javaslatok
-- Nincs új javaslat. Az elmúlt 24h hot/warm memóriái (7 db: igaming karrier-scan + délutáni re-scan, igaming kaszinó-hírek, job-hunter napi scan, marveen marveen.io API referencia, marveen KSFKft dokumentum-hely, marveen skip-skill bejegyzés) mindegyike lefedett automatizált folyamatból vagy egyszeri esetből származik, nincs 3+ visszatérő manuális minta ami skillt igényelne.
+## Skill-javaslatok
+- Nincs új javaslat (a 24h memóriák: scan/profilcheck/napindító, mind meglévő skillekkel fedett).
 
-## 🧹 Memória-egészség
-397 bejegyzés, 313 vektorizált (84 vektorizálatlan). 1 elavult (7+ napja nem hivatkozott) hot-tier bejegyzés cold-ba mozgatva (id 387, 2026-09-04-i skip-skill jegyzet).
+## Memória-egészség
+580/590 vektorizált (10 vektorizálatlan), 3 hot->cold mozgatva (591, 592, 595: 10-05-i scan-eredmény, jóváhagyásra váró CV, skip-skill jegyzet).
 
-## 🎯 Top-3 holnapi javaslat
-1. ksfkft.hu SEO+marketing terv (n8n automatizáció, 8 hetes) -- marketing agentnél, waiting, legfrissebben mozdult (2.9 napja)
-2. Sajat SEO+CMS automatizalt rendszer terve (DOCX) -- Zoltannál, in_progress (4.9 napja mozdult)
-3. ksfkft.hu komplex SEO+marketing növekedési terv (low/medium budget) -- marketing agentnél, in_progress (7.7 napja mozdult)
+## Top-3 holnapi javaslat
+1. Zoltan teendők: NKOI elnöki pályázat — határidő 2026-10-20 (8 nap), most kell eldönteni indul-e (igaming 10-12-i jelzése).
+2. Job Hunt: IGT Game Integrity & Operational Assurance Manager (Belgrade) — top fit, CV kész, jóváhagyásra vár.
+3. Zoltan teendők: LinkedIn profil javítások — a headline sérti a Credential Rules-t, a job-hunter 10-12-én megerősítette a hiányzó kulcsszavakat.
 
-(Régebbi nyitott, de inaktív high-prio kártya: Szerver migráció -- 60.4 napja nem mozdult, még mindig nyitott -- érdemes rákérdezni Zoltánnál hogy még aktuális-e.)
+Rákérdezendő (30+ napja nem mozdult, high-prio, még nyitott): Filmes produkciók megkeresése (09-20), Munkanélküli hivatal időpont (09-30, 13 napos), SEO rendszer terv DOCX (09-06), Saját honlap építés (08-28), Free SAP menetrend (08-24), ksfkft.hu SEO n8n terv (09-08, waiting). Még aktuálisak?
 
-## 🌐 External opportunity
-- Skip -- heti limit (utolsó javaslat 2026-09-09, neonwatty/job-apply-plugin, csak 2 napja).
+## External opportunity
+Skip — heti limit (utolsó ajánlás 10-09: nimrodfisher/data-analytics-skills).
 
-## 🛠 Skill-flotta health
-Nincs változás tegnaphoz képest: minden csapat-szerepkör (job-hunter, marketing, engineer, igaming, tester) aktív, nincs új bizonyíték elhanyagolt/inaktív skillre. Korábbi archiválási jelöltek (channel-plugin-duplicate-socket, connectors-hu, claude-channel-plugin-setup) továbbra is tartalékként megmaradnak Zoltan döntése szerint.
+## Skill-flotta health
+Minden skill aktív, nincs bizonyított archiválási jelölt. Az mtime alapú lista önmagában nem bizonyít nem-használatot.
 
-*Marveen, 02:07 -- most már alszom én is.*
+*Marveen, 02:09 — most már alszom én is.*
