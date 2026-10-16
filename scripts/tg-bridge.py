@@ -12,6 +12,7 @@ LOG        = '/home/userzoltan/marveen/store/tg-bridge.log'
 LOG_NOTIFY = '/home/userzoltan/marveen/store/notify.log'
 INSTALL    = '/home/userzoltan/marveen'
 TMUX       = '/usr/bin/tmux'
+DASH_TOKEN_FILE = '/home/userzoltan/marveen/store/.dashboard-token'
 HISTORY_FILE         = '/home/userzoltan/marveen/store/conversation-history.json'
 SESSION_CREATED_FILE = '/home/userzoltan/marveen/store/tg-bridge-session-ts'
 
@@ -25,6 +26,59 @@ def tg_get(method, **params):
     url = f'https://api.telegram.org/bot{TOKEN}/{method}?{qs}'
     with urllib.request.urlopen(url, timeout=10) as r:
         return json.loads(r.read())
+
+def tg_api_post(method, payload):
+    """JSON POST to Telegram Bot API."""
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        f'https://api.telegram.org/bot{TOKEN}/{method}',
+        data=data, headers={'Content-Type': 'application/json'}, method='POST'
+    )
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.loads(r.read())
+
+def handle_callback(cq):
+    """Feldolgozza a Telegram callback_query-t (inline gomb nyomas)."""
+    cq_id     = cq['id']
+    cq_data   = cq.get('data', '')
+    cq_msg    = cq.get('message', {})
+    cq_chat   = str(cq_msg.get('chat', {}).get('id', ''))
+    cq_msg_id = cq_msg.get('message_id')
+
+    if cq_chat != ALLOWED:
+        return
+
+    log(f'CALLBACK: {cq_data}')
+
+    # 1. answerCallbackQuery -- spinner eltunik Zoltannal
+    try:
+        tg_api_post('answerCallbackQuery', {'callback_query_id': cq_id})
+    except Exception as e:
+        log(f'answerCallbackQuery hiba: {e}')
+
+    # 2. Gombok eltavolitasa az uzenetbol (ketszeri nyomas megakadalyozasa)
+    try:
+        tg_api_post('editMessageReplyMarkup', {
+            'chat_id': cq_chat, 'message_id': cq_msg_id,
+            'reply_markup': {'inline_keyboard': []}
+        })
+    except Exception as e:
+        log(f'editMessageReplyMarkup hiba: {e}')
+
+    # 3. Tovabbitas marveen + job-hunter fele dashboard API-n
+    try:
+        dash_token = open(DASH_TOKEN_FILE).read().strip()
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {dash_token}'}
+        for target in ('marveen', 'job-hunter'):
+            payload = json.dumps({'from': 'tg-bridge', 'to': target,
+                                  'content': f'[TELEGRAM CALLBACK] {cq_data}'}).encode()
+            req = urllib.request.Request('http://localhost:3420/api/messages',
+                                         data=payload, headers=headers, method='POST')
+            with urllib.request.urlopen(req, timeout=5) as r:
+                pass
+        log(f'CALLBACK tovabbitva (marveen + job-hunter): {cq_data}')
+    except Exception as e:
+        log(f'CALLBACK tovabbitas hiba: {e}')
 
 def tg_send_direct(text):
     """Direkt Telegram uzenet Zoltannak Bot API POST-tal (nem notify.sh)."""
@@ -304,6 +358,12 @@ def main():
             for u in d.get('result', []):
                 uid = u['update_id']
                 open(OFFSET, 'w').write(str(uid + 1))
+
+                # Inline gomb visszajelzes kezelese
+                cq = u.get('callback_query')
+                if cq:
+                    handle_callback(cq)
+                    continue
 
                 msg  = u.get('message', {})
                 chat = str(msg.get('chat', {}).get('id', ''))

@@ -18,18 +18,29 @@ else
 fi
 [ -z "$MESSAGE" ] && { echo 'Hasznalat: $0 "uzenet"  VAGY  echo "uzenet" | $0'; exit 1; }
 
-# Telegram: 4096 char limit per uzenet, hosszabb szoveg darabolva
-MAX=4000
-LENGTH=${#MESSAGE}
-OFFSET=0
-while [ $OFFSET -lt $LENGTH ]; do
-  CHUNK="${MESSAGE:$OFFSET:$MAX}"
+# Optional inline keyboard buttons: $2 = reply_markup JSON (pl. {"inline_keyboard":[[...]]})
+BUTTONS="$2"
+
+if [ -n "$BUTTONS" ]; then
+  # Gombok eseten egyszeru JSON POST (approval card, rovid szoveg, nincs chunking)
+  TEXT_JSON=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$MESSAGE")
   curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-    --data-urlencode "text=${CHUNK}" \
-    -d "chat_id=${CHAT_ID}" \
-    -d "parse_mode=" > /dev/null
-  OFFSET=$((OFFSET + MAX))
-done
+    -H "Content-Type: application/json" \
+    -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":${TEXT_JSON},\"reply_markup\":${BUTTONS}}" > /dev/null
+else
+  # Telegram: 4096 char limit per uzenet, hosszabb szoveg darabolva
+  MAX=4000
+  LENGTH=${#MESSAGE}
+  OFFSET=0
+  while [ $OFFSET -lt $LENGTH ]; do
+    CHUNK="${MESSAGE:$OFFSET:$MAX}"
+    curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+      --data-urlencode "text=${CHUNK}" \
+      -d "chat_id=${CHAT_ID}" \
+      -d "parse_mode=" > /dev/null
+    OFFSET=$((OFFSET + MAX))
+  done
+fi
 
 # Dashboard chat log -- newline-ok escaped-kent tarolva (\n literal),
 # kulonben a tobbsoros uzenet soronkent irodik es a parser csak az elso sort olvassa.
