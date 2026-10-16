@@ -3,7 +3,7 @@
 tg-bridge.py -- Telegram <-> Marveen hid
 Tmux inject + notify.sh log polling + session restart context injection
 """
-import json, os, re, subprocess, sys, tempfile, time, urllib.request, urllib.parse
+import datetime, json, os, re, subprocess, sys, tempfile, time, urllib.request, urllib.parse
 
 TOKEN      = open('/home/userzoltan/marveen/.env').read().split('TELEGRAM_BOT_TOKEN=')[1].split()[0]
 ALLOWED    = '7397490330'
@@ -13,6 +13,7 @@ LOG_NOTIFY = '/home/userzoltan/marveen/store/notify.log'
 INSTALL    = '/home/userzoltan/marveen'
 TMUX       = '/usr/bin/tmux'
 DASH_TOKEN_FILE = '/home/userzoltan/marveen/store/.dashboard-token'
+SCHED_DIR      = '/home/userzoltan/.claude/scheduled-tasks'
 HISTORY_FILE         = '/home/userzoltan/marveen/store/conversation-history.json'
 SESSION_CREATED_FILE = '/home/userzoltan/marveen/store/tg-bridge-session-ts'
 
@@ -37,6 +38,95 @@ def tg_api_post(method, payload):
     with urllib.request.urlopen(req, timeout=10) as r:
         return json.loads(r.read())
 
+def _dash_api(method, path, data=None):
+    """Dashboard API hivas."""
+    token = open(DASH_TOKEN_FILE).read().strip()
+    payload = json.dumps(data).encode() if data is not None else b''
+    headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'}
+    req = urllib.request.Request(
+        f'http://localhost:3420{path}',
+        data=payload if method != 'GET' else None,
+        headers=headers, method=method
+    )
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return json.loads(r.read())
+
+def _tg_confirm(chat_id, text):
+    """Rovid megerosito uzenet Telegramra."""
+    try:
+        tg_api_post('sendMessage', {'chat_id': chat_id, 'text': text})
+    except Exception as e:
+        log(f'tg_confirm hiba: {e}')
+
+def _forward_callback(cq_data, targets):
+    """Callback tovabbitasa inter-agent uzenetkent."""
+    try:
+        for t in targets:
+            _dash_api('POST', '/api/messages', {
+                'from': 'tg-bridge', 'to': t,
+                'content': f'[TELEGRAM CALLBACK] {cq_data}'
+            })
+        log(f'CALLBACK tovabbitva ({", ".join(targets)}): {cq_data}')
+    except Exception as e:
+        log(f'CALLBACK tovabbitas hiba: {e}')
+
+def _kanban_done(chat, card_id):
+    try:
+        _dash_api('PUT', f'/api/kanban/{card_id}', {'status': 'done'})
+        _tg_confirm(chat, '✅ Kész jelölve.')
+        log(f'KANBAN DONE: {card_id}')
+    except Exception as e:
+        log(f'kanban_done hiba: {e}')
+        _tg_confirm(chat, f'⚠️ Nem sikerült jelölni: {e}')
+
+def _kanban_holnapra(chat, card_id):
+    try:
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+        _dash_api('PUT', f'/api/kanban/{card_id}', {'due_date': tomorrow})
+        _tg_confirm(chat, f'📅 Holnapra tolva ({tomorrow}).')
+        log(f'KANBAN HOLNAPRA: {card_id} -> {tomorrow}')
+    except Exception as e:
+        log(f'kanban_holnapra hiba: {e}')
+        _tg_confirm(chat, f'⚠️ Halasztás sikertelen: {e}')
+
+def _reminder_done(chat, sched_name):
+    try:
+        _dash_api('PUT', f'/api/schedules/{sched_name}', {'enabled': False})
+        _tg_confirm(chat, '✅ Rendben, az emlékeztető le van állítva.')
+        log(f'REMINDER DONE: {sched_name}')
+    except Exception as e:
+        log(f'reminder_done hiba: {e}')
+        _tg_confirm(chat, f'⚠️ Emlékeztető leállítása sikertelen: {e}')
+
+def _reminder_snooze(chat, sched_name):
+    try:
+        sched_dir = f'{SCHED_DIR}/{sched_name}'
+        config = json.loads(open(f'{sched_dir}/task-config.json').read())
+        skill_raw = open(f'{sched_dir}/SKILL.md').read()
+        # YAML frontmatter kiszedese
+        if skill_raw.startswith('---'):
+            parts = skill_raw.split('---', 2)
+            prompt = parts[2].strip() if len(parts) >= 3 else skill_raw.strip()
+        else:
+            prompt = skill_raw.strip()
+        now = datetime.datetime.now()
+        snooze_dt = now + datetime.timedelta(hours=1)
+        cron = f'{snooze_dt.minute} {snooze_dt.hour} {snooze_dt.day} {snooze_dt.month} *'
+        snooze_name = f'{sched_name[:40]}-snz{int(now.timestamp()) % 100000}'
+        _dash_api('POST', '/api/schedules', {
+            'name': snooze_name,
+            'description': f'Egyszeri halasztas: {sched_name}',
+            'prompt': prompt,
+            'schedule': cron,
+            'agent': config.get('agent', 'marveen'),
+            'type': config.get('type', 'task'),
+        })
+        _tg_confirm(chat, f'⏳ Rendben, {snooze_dt.strftime("%H:%M")}-kor emlékeztetlek.')
+        log(f'REMINDER SNOOZE: {sched_name} -> {cron} ({snooze_name})')
+    except Exception as e:
+        log(f'reminder_snooze hiba: {e}')
+        _tg_confirm(chat, f'⚠️ Halasztás sikertelen: {e}')
+
 def handle_callback(cq):
     """Feldolgozza a Telegram callback_query-t (inline gomb nyomas)."""
     cq_id     = cq['id']
@@ -50,13 +140,13 @@ def handle_callback(cq):
 
     log(f'CALLBACK: {cq_data}')
 
-    # 1. answerCallbackQuery -- spinner eltunik Zoltannal
+    # 1. answerCallbackQuery azonnal (10mp-es ablak)
     try:
         tg_api_post('answerCallbackQuery', {'callback_query_id': cq_id})
     except Exception as e:
         log(f'answerCallbackQuery hiba: {e}')
 
-    # 2. Gombok eltavolitasa az uzenetbol (ketszeri nyomas megakadalyozasa)
+    # 2. Gombok eltavolitasa (ketszeri nyomas megakadalyozasa)
     try:
         tg_api_post('editMessageReplyMarkup', {
             'chat_id': cq_chat, 'message_id': cq_msg_id,
@@ -65,20 +155,24 @@ def handle_callback(cq):
     except Exception as e:
         log(f'editMessageReplyMarkup hiba: {e}')
 
-    # 3. Tovabbitas marveen + job-hunter fele dashboard API-n
-    try:
-        dash_token = open(DASH_TOKEN_FILE).read().strip()
-        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {dash_token}'}
-        for target in ('marveen', 'job-hunter'):
-            payload = json.dumps({'from': 'tg-bridge', 'to': target,
-                                  'content': f'[TELEGRAM CALLBACK] {cq_data}'}).encode()
-            req = urllib.request.Request('http://localhost:3420/api/messages',
-                                         data=payload, headers=headers, method='POST')
-            with urllib.request.urlopen(req, timeout=5) as r:
-                pass
-        log(f'CALLBACK tovabbitva (marveen + job-hunter): {cq_data}')
-    except Exception as e:
-        log(f'CALLBACK tovabbitas hiba: {e}')
+    # 3. Routing: action:type:id format
+    parts  = cq_data.split(':', 2)
+    action = parts[0] if len(parts) > 0 else ''
+    ctype  = parts[1] if len(parts) > 1 else ''
+    cid    = parts[2] if len(parts) > 2 else ''
+
+    if action in ('approve', 'reject', 'later'):
+        _forward_callback(cq_data, ['marveen', 'job-hunter'])
+    elif action == 'done' and ctype == 'kanban':
+        _kanban_done(cq_chat, cid)
+    elif action == 'holnapra' and ctype == 'kanban':
+        _kanban_holnapra(cq_chat, cid)
+    elif action == 'done' and ctype == 'rem':
+        _reminder_done(cq_chat, cid)
+    elif action == 'snooze' and ctype == 'rem':
+        _reminder_snooze(cq_chat, cid)
+    else:
+        _forward_callback(cq_data, ['marveen'])
 
 def tg_send_direct(text):
     """Direkt Telegram uzenet Zoltannak Bot API POST-tal (nem notify.sh)."""
