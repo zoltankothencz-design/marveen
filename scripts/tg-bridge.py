@@ -92,6 +92,17 @@ def _kanban_holnapra(chat, card_id):
 def _reminder_done(chat, sched_name):
     try:
         _dash_api('PUT', f'/api/schedules/{sched_name}', {'enabled': False})
+        # Disable all snooze copies ({sched_name}-snz*)
+        try:
+            all_scheds = _dash_api('GET', '/api/schedules')
+            prefix = sched_name + '-snz'
+            for s in (all_scheds if isinstance(all_scheds, list) else []):
+                name = s.get('name', '')
+                if name.startswith(prefix) and s.get('enabled', False):
+                    _dash_api('PUT', f'/api/schedules/{name}', {'enabled': False})
+                    log(f'REMINDER DONE snz: {name}')
+        except Exception as e2:
+            log(f'snz disable hiba: {e2}')
         _tg_confirm(chat, '✅ Rendben, az emlékeztető le van állítva.')
         log(f'REMINDER DONE: {sched_name}')
     except Exception as e:
@@ -113,10 +124,19 @@ def _reminder_snooze(chat, sched_name):
         snooze_dt = now + datetime.timedelta(hours=1)
         cron = f'{snooze_dt.minute} {snooze_dt.hour} {snooze_dt.day} {snooze_dt.month} *'
         snooze_name = f'{sched_name[:40]}-snz{int(now.timestamp()) % 100000}'
+        # One-shot: append self-disable instruction to prompt
+        self_disable = (
+            f'\n\nEGYSZERI EMLEKEZTETO: Miutan elkuldted az uzenetet Telegramon, '
+            f'AZONNAL tiltsd le ezt a schedule-t:\n'
+            f'curl -s -X PUT "http://localhost:3420/api/schedules/{snooze_name}" '
+            f'-H "Content-Type: application/json" '
+            f'-H "Authorization: Bearer $(cat /home/userzoltan/marveen/store/.dashboard-token)" '
+            f'-d \'{{"enabled": false}}\''
+        )
         _dash_api('POST', '/api/schedules', {
             'name': snooze_name,
             'description': f'Egyszeri halasztas: {sched_name}',
-            'prompt': prompt,
+            'prompt': prompt + self_disable,
             'schedule': cron,
             'agent': config.get('agent', 'marveen'),
             'type': config.get('type', 'task'),
